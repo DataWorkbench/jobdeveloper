@@ -1289,13 +1289,14 @@ func printNode(dag []constants.DagNode, d constants.DagNode, ssql SqlStack) (sql
 	return
 }
 
-func printSqlAndElement(dag []constants.DagNode, job constants.FlinkNode, sourceClient SourceClient, udfClient UdfClient, flinkHome string, flinkExecuteJars string, spaceID string, engineID string, jobID string) (jobElement constants.JobElementFlink, err error) {
+func printSqlAndElement(dag []constants.DagNode, job constants.FlinkNode, sourceClient SourceClient, udfClient UdfClient, flinkHome string, flinkExecuteJars string, spaceID string, engineID string, jobID string, command string) (jobElement constants.JobElementFlink, err error) {
 	var (
 		d              constants.DagNode
 		sql            SqlStack
 		jarMode        bool
 		engineRequest  constants.EngineRequestOptions
 		engineResponse constants.EngineResponseOptions
+		jobenv         constants.StreamFlowEnv
 	)
 
 	if dag[0].NodeType == constants.SqlNode {
@@ -1325,17 +1326,22 @@ func printSqlAndElement(dag []constants.DagNode, job constants.FlinkNode, source
 		return
 	}
 
+	err = json.Unmarshal([]byte(job.Env), &jobenv)
+	if err != nil {
+		return
+	}
+
 	engineRequest.JobID = jobID
 	engineRequest.EngineID = engineID
 	engineRequest.WorkspaceID = spaceID
-	engineRequest.Parallelism = job.Parallelism
-	engineRequest.JobCpu = job.JobCpu
-	engineRequest.JobMem = job.JobMem
-	engineRequest.TaskCpu = job.TaskCpu
-	engineRequest.TaskMem = job.TaskMem
-	engineRequest.TaskNum = job.TaskNum
+	engineRequest.Parallelism = jobenv.Parallelism
+	engineRequest.JobCpu = jobenv.JobCpu
+	engineRequest.JobMem = jobenv.JobMem
+	engineRequest.TaskCpu = jobenv.TaskCpu
+	engineRequest.TaskMem = jobenv.TaskMem
+	engineRequest.TaskNum = jobenv.TaskNum
 	if jarMode == true {
-		if job.Command == constants.PreviewCommand || job.Command == constants.SyntaxCheckCommand {
+		if command == constants.PreviewCommand || command == constants.SyntaxCheckCommand {
 			err = fmt.Errorf("jar mode only support run/explain command")
 			return
 		}
@@ -1368,8 +1374,8 @@ func printSqlAndElement(dag []constants.DagNode, job constants.FlinkNode, source
 			entry = " -c '" + jar.JarEntry + "' "
 		}
 
-		if job.Parallelism > 0 {
-			jarParallelism = " -p " + fmt.Sprintf("%d", job.Parallelism) + " "
+		if jobenv.Parallelism > 0 {
+			jarParallelism = " -p " + fmt.Sprintf("%d", jobenv.Parallelism) + " "
 		} else {
 			jarParallelism = ""
 		}
@@ -1400,8 +1406,8 @@ func printSqlAndElement(dag []constants.DagNode, job constants.FlinkNode, source
 		} else {
 			title = "%flink.bsql"
 		}
-		if job.Parallelism > 0 {
-			title += "(parallelism=" + fmt.Sprintf("%d", job.Parallelism) + ")"
+		if jobenv.Parallelism > 0 {
+			title += "(parallelism=" + fmt.Sprintf("%d", jobenv.Parallelism) + ")"
 		}
 		title += "\n\n"
 
@@ -1637,7 +1643,7 @@ func printSqlAndElement(dag []constants.DagNode, job constants.FlinkNode, source
 
 		//mainrun
 		jobElement.ZeppelinMainRun = title
-		if job.Command == constants.ExplainCommand || job.Command == constants.SyntaxCheckCommand {
+		if command == constants.ExplainCommand || command == constants.SyntaxCheckCommand {
 			jobElement.ZeppelinMainRun += "explain "
 		}
 		jobElement.ZeppelinMainRun += sql.Sql

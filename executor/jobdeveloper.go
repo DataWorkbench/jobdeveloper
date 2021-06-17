@@ -28,7 +28,7 @@ func NewJobDeveloperExecutor(l *glog.Logger, sClient SourceClient, uClient UdfCl
 	return ex
 }
 
-func (ex *JobdeveloperExecutor) JobParser(ctx context.Context, jobID string, workSpaceID string, engineID string, engineType string, jobInfo string) (jobElementString string, err error) {
+func (ex *JobdeveloperExecutor) JobParser(ctx context.Context, jobID string, workSpaceID string, engineID string, engineType string, command string, jobInfo string) (jobElementString string, err error) {
 	if engineType == constants.ServerTypeFlink {
 		var (
 			dag        []constants.DagNode
@@ -45,7 +45,7 @@ func (ex *JobdeveloperExecutor) JobParser(ctx context.Context, jobID string, wor
 			return
 		}
 
-		jobElement, err = printSqlAndElement(dag, job, ex.sourceClient, ex.udfClient, ex.FlinkHome, ex.FlinkExecuteJars, workSpaceID, engineID, jobID)
+		jobElement, err = printSqlAndElement(dag, job, ex.sourceClient, ex.udfClient, ex.FlinkHome, ex.FlinkExecuteJars, workSpaceID, engineID, jobID, command)
 		if err != nil {
 			return
 		}

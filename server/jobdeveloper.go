@@ -24,7 +24,7 @@ func NewJobDeveloperServer(executor *executor.JobdeveloperExecutor) *JobDevelope
 
 func (s *JobDeveloperServer) JobParser(ctx context.Context, req *jobdevpb.JobParserRequest) (r *jobdevpb.JobElement, err error) {
 	var resp jobdevpb.JobElement
-	resp.JobElement, err = s.executor.JobParser(ctx, req.GetID(), req.GetWorkspaceID(), req.GetEngineID(), req.GetEngineType(), req.GetJobInfo())
+	resp.JobElement, err = s.executor.JobParser(ctx, req.GetID(), req.GetWorkspaceID(), req.GetEngineID(), req.GetEngineType(), req.GetCommand(), req.GetJobInfo())
 	return &resp, err
 }
 
