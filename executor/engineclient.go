@@ -12,6 +12,7 @@ func GetEngine(options string) (respstring string, err error) {
 
 	resp.EngineType = "Flink"
 	resp.EngineHost = "127.0.0.1"
+	resp.EngineHost = "dataworkbench-flink-jobmanager"
 	//resp.EngineHost = "flinkjobmanager"
 	resp.EnginePort = "8081"
 
