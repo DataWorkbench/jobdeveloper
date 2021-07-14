@@ -17,3 +17,6 @@ zeppelin_flink_execute_jars: "MySQL:/home/lzzhang/bigdata/flink-bin-download/zep
 sourcemanager_server: "127.0.0.1:50001"
 udfmanager_server: "127.0.0.1:52001"
 
+tracer:
+  service_name: "jobdeveloper"
+  local_agent: "127.0.0.1:6831"

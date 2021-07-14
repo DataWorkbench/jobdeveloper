@@ -8,6 +8,7 @@ import (
 
 	"github.com/DataWorkbench/common/grpcwrap"
 	"github.com/DataWorkbench/common/metrics"
+	"github.com/DataWorkbench/common/trace"
 	"github.com/DataWorkbench/loader"
 	"github.com/go-playground/validator/v10"
 	"gopkg.in/yaml.v3"
@@ -28,6 +29,7 @@ type Config struct {
 	ZeppelinFlinkExecuteJars string                 `json:"zeppelin_flink_execute_jars"      yaml:"zeppelin_flink_execute_jars"      env:"ZEPPELIN_FLINK_EXECUTE_JARS" validate:"required"`
 	SourcemanagerServer      string                 `json:"sourcemanager_server"      yaml:"sourcemanager_server"      env:"SOURCEMANAGER_SERVER" validate:"required"`
 	UdfmanagerServer         string                 `json:"udfmanager_server"      yaml:"udfmanager_server"      env:"UDFMANAGER_SERVER" validate:"required"`
+	Tracer                   *trace.Config          `json:"tracer"         yaml:"tracer"         env:"TRACER"              validate:"required"`
 }
 
 func loadFromFile(cfg *Config) (err error) {

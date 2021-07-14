@@ -3,11 +3,13 @@ package server
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"github.com/DataWorkbench/common/trace"
 	"github.com/DataWorkbench/common/utils/buildinfo"
 	"github.com/DataWorkbench/glog"
 	"google.golang.org/grpc"
@@ -39,18 +41,30 @@ func Start() (err error) {
 	var (
 		rpcServer    *grpcwrap.Server
 		metricServer *metrics.Server
+		tracer       trace.Tracer
+		tracerCloser io.Closer
 	)
 
 	defer func() {
 		rpcServer.GracefulStop()
 		_ = metricServer.Shutdown(ctx)
+		if tracerCloser != nil {
+			_ = tracerCloser.Close()
+		}
 		_ = lp.Close()
 	}()
+
+	tracer, tracerCloser, err = trace.New(cfg.Tracer)
+	if err != nil {
+		return
+	}
+
 	sourceClient, tmperr := executor.NewSourceClient(cfg.SourcemanagerServer)
 	if tmperr != nil {
 		err = tmperr
 		return
 	}
+
 	udfClient, tmperr1 := executor.NewUdfClient(cfg.UdfmanagerServer)
 	if tmperr1 != nil {
 		err = tmperr1
@@ -58,7 +72,7 @@ func Start() (err error) {
 	}
 
 	// init grpc.Server
-	rpcServer, err = grpcwrap.NewServer(ctx, cfg.GRPCServer)
+	rpcServer, err = grpcwrap.NewServer(ctx, cfg.GRPCServer, grpcwrap.ServerWithTracer(tracer))
 	if err != nil {
 		return
 	}
