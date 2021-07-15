@@ -20,9 +20,7 @@ func NewSourceClient(serverAddr string) (c SourceClient, err error) {
 
 	ctx := glog.WithContext(context.Background(), glog.NewDefault())
 	conn, err = grpcwrap.NewConn(ctx, &grpcwrap.ClientConfig{
-		Address:      serverAddr,
-		LogLevel:     2,
-		LogVerbosity: 99,
+		Address: serverAddr,
 	})
 	if err != nil {
 		return

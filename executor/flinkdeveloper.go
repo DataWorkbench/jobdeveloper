@@ -1335,10 +1335,8 @@ func printSqlAndElement(dag []constants.DagNode, job constants.FlinkNode, source
 	engineRequest.EngineID = engineID
 	engineRequest.WorkspaceID = spaceID
 	engineRequest.Parallelism = jobenv.Parallelism
-	engineRequest.JobCpu = jobenv.JobCpu
-	engineRequest.JobMem = jobenv.JobMem
-	engineRequest.TaskCpu = jobenv.TaskCpu
-	engineRequest.TaskMem = jobenv.TaskMem
+	engineRequest.JobCU = jobenv.JobCU
+	engineRequest.TaskCU = jobenv.TaskCU
 	engineRequest.TaskNum = jobenv.TaskNum
 	if jarMode == true {
 		if command == constants.PreviewCommand || command == constants.SyntaxCheckCommand {
