@@ -1382,6 +1382,7 @@ func printSqlAndElement(ctx context.Context, dag []constants.DagNode, job consta
 		engineRequest.AccessKey = jar.AccessKey
 		engineRequest.SecretKey = jar.SecretKey
 		engineRequest.EndPoint = jar.EndPoint
+		engineRequest.HbaseHosts = jar.HbaseHosts
 	} else {
 		var (
 			title       string
@@ -1439,6 +1440,18 @@ func printSqlAndElement(ctx context.Context, dag []constants.DagNode, job consta
 					err = fmt.Errorf("only allow one s3 sourcemanger in a job, all accesskey secretkey endpoint is the same")
 					return
 				}
+			}
+
+			if sourceType == constants.SourceTypeHbase {
+				var v constants.SourceHbaseParams
+
+				if err = json.Unmarshal([]byte(ManagerUrl), &v); err != nil {
+					return
+				}
+				if jobElement.HbaseHosts != "" {
+					jobElement.HbaseHosts += ";"
+				}
+				jobElement.HbaseHosts += v.Hosts
 			}
 
 			find := false
@@ -1616,6 +1629,36 @@ func printSqlAndElement(ctx context.Context, dag []constants.DagNode, job consta
 				for _, opt := range t.ConnectorOptions {
 					jobElement.ZeppelinDepends += "," + opt + "\n"
 				}
+			} else if sourceType == constants.SourceTypeHbase {
+				var m constants.SourceHbaseParams
+				var t constants.FlinkTableDefineHbase
+
+				if err = json.Unmarshal([]byte(ManagerUrl), &m); err != nil {
+					return
+				}
+				if err = json.Unmarshal([]byte(tableUrl), &t); err != nil {
+					return
+				}
+				jobElement.ZeppelinDepends += "("
+				first := true
+				for _, column := range t.SqlColumn {
+					if first == true {
+						jobElement.ZeppelinDepends += column
+						first = false
+					} else {
+						jobElement.ZeppelinDepends += "," + column
+					}
+				}
+				jobElement.ZeppelinDepends += ") WITH (\n"
+
+				jobElement.ZeppelinDepends += "'connector' = 'hbase-2.2',\n"
+				jobElement.ZeppelinDepends += "'table-name' = '" + tableName + "',\n"
+				jobElement.ZeppelinDepends += "'zookeeper.quorum' = '" + m.Zookeeper + "',\n"
+				jobElement.ZeppelinDepends += "'zookeeper.znode.parent' = '" + m.Znode + "'\n"
+
+				for _, opt := range t.ConnectorOptions {
+					jobElement.ZeppelinDepends += "," + opt + "\n"
+				}
 			} else {
 				err = fmt.Errorf("don't support this source mananger %s", sourceType)
 				return
@@ -1681,6 +1724,7 @@ func printSqlAndElement(ctx context.Context, dag []constants.DagNode, job consta
 		engineRequest.AccessKey = jobElement.S3info.AccessKey
 		engineRequest.SecretKey = jobElement.S3info.SecretKey
 		engineRequest.EndPoint = jobElement.S3info.EndPoint
+		engineRequest.HbaseHosts = jobElement.HbaseHosts
 	}
 
 	engineRequestByte, _ := json.Marshal(engineRequest)
