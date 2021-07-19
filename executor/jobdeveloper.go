@@ -45,7 +45,7 @@ func (ex *JobdeveloperExecutor) JobParser(ctx context.Context, jobID string, wor
 			return
 		}
 
-		jobElement, err = printSqlAndElement(dag, job, ex.sourceClient, ex.udfClient, ex.FlinkHome, ex.FlinkExecuteJars, workSpaceID, engineID, jobID, command)
+		jobElement, err = printSqlAndElement(ctx, dag, job, ex.sourceClient, ex.udfClient, ex.FlinkHome, ex.FlinkExecuteJars, workSpaceID, engineID, jobID, command)
 		if err != nil {
 			return
 		}

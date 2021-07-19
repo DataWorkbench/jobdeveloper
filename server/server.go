@@ -39,10 +39,14 @@ func Start() (err error) {
 	ctx := glog.WithContext(context.Background(), lp)
 
 	var (
-		rpcServer    *grpcwrap.Server
-		metricServer *metrics.Server
-		tracer       trace.Tracer
-		tracerCloser io.Closer
+		rpcServer         *grpcwrap.Server
+		metricServer      *metrics.Server
+		tracer            trace.Tracer
+		tracerCloser      io.Closer
+		sourceManagerConn *grpcwrap.ClientConn
+		sourceClient      executor.SourceClient
+		UdfManagerConn    *grpcwrap.ClientConn
+		udfClient         executor.UdfClient
 	)
 
 	defer func() {
@@ -59,15 +63,23 @@ func Start() (err error) {
 		return
 	}
 
-	sourceClient, tmperr := executor.NewSourceClient(cfg.SourcemanagerServer)
-	if tmperr != nil {
-		err = tmperr
+	sourceManagerConn, err = grpcwrap.NewConn(ctx, cfg.SourcemanagerServer, grpcwrap.ClientWithTracer(tracer))
+	if err != nil {
 		return
 	}
 
-	udfClient, tmperr1 := executor.NewUdfClient(cfg.UdfmanagerServer)
-	if tmperr1 != nil {
-		err = tmperr1
+	sourceClient, err = executor.NewSourceClient(sourceManagerConn)
+	if err != nil {
+		return
+	}
+
+	UdfManagerConn, err = grpcwrap.NewConn(ctx, cfg.UdfmanagerServer, grpcwrap.ClientWithTracer(tracer))
+	if err != nil {
+		return
+	}
+
+	udfClient, err = executor.NewUdfClient(UdfManagerConn)
+	if err != nil {
 		return
 	}
 

@@ -1,6 +1,7 @@
 package executor
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -1289,7 +1290,7 @@ func printNode(dag []constants.DagNode, d constants.DagNode, ssql SqlStack) (sql
 	return
 }
 
-func printSqlAndElement(dag []constants.DagNode, job constants.FlinkNode, sourceClient SourceClient, udfClient UdfClient, flinkHome string, flinkExecuteJars string, spaceID string, engineID string, jobID string, command string) (jobElement constants.JobElementFlink, err error) {
+func printSqlAndElement(ctx context.Context, dag []constants.DagNode, job constants.FlinkNode, sourceClient SourceClient, udfClient UdfClient, flinkHome string, flinkExecuteJars string, spaceID string, engineID string, jobID string, command string) (jobElement constants.JobElementFlink, err error) {
 	var (
 		d              constants.DagNode
 		sql            SqlStack
@@ -1413,12 +1414,12 @@ func printSqlAndElement(dag []constants.DagNode, job constants.FlinkNode, source
 		jobElement.ZeppelinDepends = title
 
 		for _, table := range sql.TableID {
-			sourceID, tableName, tableUrl, errTmp := sourceClient.DescribeSourceTable(table)
+			sourceID, tableName, tableUrl, errTmp := sourceClient.DescribeSourceTable(ctx, table)
 			if errTmp != nil {
 				err = errTmp
 				return
 			}
-			sourceType, ManagerUrl, errTmp := sourceClient.DescribeSourceManager(sourceID)
+			sourceType, ManagerUrl, errTmp := sourceClient.DescribeSourceManager(ctx, sourceID)
 			if errTmp != nil {
 				err = errTmp
 				return
@@ -1649,7 +1650,7 @@ func printSqlAndElement(dag []constants.DagNode, job constants.FlinkNode, source
 		udfList.Limit = 100000
 		udfList.Offset = 0
 		udfList.SpaceID = spaceID
-		udfListRep, err = udfClient.client.List(udfClient.ctx, &udfList)
+		udfListRep, err = udfClient.client.List(ctx, &udfList)
 		if err != nil {
 			return
 		}
