@@ -1257,6 +1257,7 @@ func printNode(dag []constants.DagNode, d constants.DagNode, ssql SqlStack) (sql
 			return
 		}
 
+		sql = ssql
 		sql.Sql = v.Sql
 
 		return
@@ -1279,6 +1280,7 @@ func printNode(dag []constants.DagNode, d constants.DagNode, ssql SqlStack) (sql
 			err = fmt.Errorf("only ^[a-zA-Z0-9_/. ]*$ is allow in jarentry")
 			return
 		}
+		sql = ssql
 		sql.Sql = string(d.Property)
 		return
 
