@@ -1293,21 +1293,28 @@ func printNode(dag []constants.DagNode, d constants.DagNode, ssql SqlStack) (sql
 }
 
 func printSqlAndElement(ctx context.Context, dag []constants.DagNode, job constants.FlinkNode, sourceClient SourceClient, udfClient UdfClient, flinkHome string, flinkExecuteJars string, spaceID string, engineID string, jobID string, command string) (jobElement constants.JobElementFlink, err error) {
+	const (
+		sqlMode = iota + 1
+		jarMode
+		operatorMode
+	)
 	var (
 		d              constants.DagNode
 		sql            SqlStack
-		jarMode        bool
+		mode           int32
 		engineRequest  constants.EngineRequestOptions
 		engineResponse constants.EngineResponseOptions
 		jobenv         constants.StreamFlowEnv
 	)
 
+	mode = operatorMode
 	if dag[0].NodeType == constants.SqlNode {
 		if len(dag) != 1 {
 			err = fmt.Errorf("only support one SqlNode")
 		} else {
 			d, err = getDagNodeByType(dag, constants.SqlNode)
 		}
+		mode = sqlMode
 	} else if dag[0].NodeType == constants.SourceNode && len(dag) == 1 {
 		d, err = getDagNodeByType(dag, constants.SourceNode)
 	} else if dag[0].NodeType == constants.JarNode {
@@ -1316,7 +1323,7 @@ func printSqlAndElement(ctx context.Context, dag []constants.DagNode, job consta
 		} else {
 			d, err = getDagNodeByType(dag, constants.JarNode)
 		}
-		jarMode = true
+		mode = jarMode
 	} else {
 		d, err = getDagNodeByType(dag, constants.DestNode)
 	}
@@ -1341,7 +1348,7 @@ func printSqlAndElement(ctx context.Context, dag []constants.DagNode, job consta
 	engineRequest.JobCU = jobenv.JobCU
 	engineRequest.TaskCU = jobenv.TaskCU
 	engineRequest.TaskNum = jobenv.TaskNum
-	if jarMode == true {
+	if mode == jarMode {
 		if command == constants.PreviewCommand || command == constants.SyntaxCheckCommand {
 			err = fmt.Errorf("jar mode only support run/explain command")
 			return
@@ -1674,12 +1681,19 @@ func printSqlAndElement(ctx context.Context, dag []constants.DagNode, job consta
 			sourceType := strings.Split(jar, ":")[0]
 			executeJar := strings.Split(jar, ":")[1]
 
-			for _, jobSourceType := range sourcetypes {
-				if sourceType == jobSourceType {
-					if len(executeJars) > 0 {
-						executeJars += ","
+			if mode == sqlMode {
+				if len(executeJars) > 0 {
+					executeJars += ","
+				}
+				executeJars += executeJar
+			} else {
+				for _, jobSourceType := range sourcetypes {
+					if sourceType == jobSourceType {
+						if len(executeJars) > 0 {
+							executeJars += ","
+						}
+						executeJars += executeJar
 					}
-					executeJars += executeJar
 				}
 			}
 		}
