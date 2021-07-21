@@ -11,8 +11,8 @@ metrics_server:
   address: "127.0.0.1:53002" # required when enabled is true
   url_path: "/metrics"
 
-zeppelin_flink_home: "/home/lzzhang/bigdata/flink-bin-download/flink-1.11.2"
-zeppelin_flink_execute_jars: "MySQL:/home/lzzhang/bigdata/flink-bin-download/zeppelin-0.9.0-bin-all/lib/flink-connector-jdbc_2.11-1.11.2.jar,/home/lzzhang/bigdata/flink-bin-download/zeppelin-0.9.0-bin-all/lib/mysql-connector-java-8.0.21.jar;PostgreSQL:/home/lzzhang/bigdata/flink-bin-download/zeppelin-0.9.0-bin-all/lib/flink-connector-jdbc_2.11-1.11.2.jar,/home/lzzhang/bigdata/flink-bin-download/zeppelin-0.9.0-bin-all/lib/postgresql-42.2.18.jar;Kafka:/home/lzzhang/bigdata/flink-bin-download/zeppelin-0.9.0-bin-all/lib/flink-sql-connector-kafka_2.11-1.11.2.jar;ClickHouse:/home/lzzhang/bigdata/flink-bin-download/zeppelin-0.9.0-bin-all/lib/flink-connector-clickhouse-1.11.0.jar"
+zeppelin_flink_home: "/Users/gxlevi/bigdata/flink-1.12.2"
+zeppelin_flink_execute_jars: "MySQL:/Users/gxlevi/bigdata/lib/flink-connector-jdbc_2.11-1.12.2.jar;Kafka:/Users/gxlevi/bigdata/lib/flink-sql-connector-kafka_2.11-1.12.3.jar"
 
 sourcemanager_server:
   address: "127.0.0.1:50001"
@@ -21,6 +21,11 @@ sourcemanager_server:
 
 udfmanager_server:
   address: "127.0.0.1:52001"
+  log_level: 2
+  log_verbosity: 99
+
+filemanager_server:
+  address: "127.0.0.1:56001"
   log_level: 2
   log_verbosity: 99
 

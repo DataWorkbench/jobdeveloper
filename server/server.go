@@ -47,6 +47,8 @@ func Start() (err error) {
 		sourceClient      executor.SourceClient
 		UdfManagerConn    *grpcwrap.ClientConn
 		udfClient         executor.UdfClient
+		fileManagerConn   *grpcwrap.ClientConn
+		fileClient        executor.FileClient
 	)
 
 	defer func() {
@@ -83,13 +85,24 @@ func Start() (err error) {
 		return
 	}
 
+	fileManagerConn, err = grpcwrap.NewConn(ctx, cfg.FilemanagerServer, grpcwrap.ClientWithTracer(tracer))
+	if err !=nil{
+		return
+	}
+
+	//TODO
+	fileClient, err = executor.NewFileClient(fileManagerConn)
+	if err!=nil{
+		return
+	}
+
 	// init grpc.Server
 	rpcServer, err = grpcwrap.NewServer(ctx, cfg.GRPCServer, grpcwrap.ServerWithTracer(tracer))
 	if err != nil {
 		return
 	}
 	rpcServer.Register(func(s *grpc.Server) {
-		jobdevpb.RegisterJobdeveloperServer(s, NewJobDeveloperServer(executor.NewJobDeveloperExecutor(lp, sourceClient, udfClient, cfg.ZeppelinFlinkHome, cfg.ZeppelinFlinkExecuteJars)))
+		jobdevpb.RegisterJobdeveloperServer(s, NewJobDeveloperServer(executor.NewJobDeveloperExecutor(lp, sourceClient, udfClient,fileClient, cfg.ZeppelinFlinkHome, cfg.ZeppelinFlinkExecuteJars)))
 	})
 
 	// handle signal
