@@ -13,15 +13,17 @@ type JobdeveloperExecutor struct {
 	logger           *glog.Logger
 	sourceClient     SourceClient
 	udfClient        UdfClient
+	fileClient       FileClient
 	FlinkHome        string
 	FlinkExecuteJars string
 }
 
-func NewJobDeveloperExecutor(l *glog.Logger, sClient SourceClient, uClient UdfClient, flinkHome string, flinkExecuteJars string) *JobdeveloperExecutor {
+func NewJobDeveloperExecutor(l *glog.Logger, sClient SourceClient, uClient UdfClient, fClient FileClient, flinkHome string, flinkExecuteJars string) *JobdeveloperExecutor {
 	ex := &JobdeveloperExecutor{
 		logger:           l,
 		sourceClient:     sClient,
 		udfClient:        uClient,
+		fileClient:       fClient,
 		FlinkHome:        flinkHome,
 		FlinkExecuteJars: flinkExecuteJars,
 	}
@@ -45,7 +47,7 @@ func (ex *JobdeveloperExecutor) JobParser(ctx context.Context, jobID string, wor
 			return
 		}
 
-		jobElement, err = printSqlAndElement(ctx, dag, job, ex.sourceClient, ex.udfClient, ex.FlinkHome, ex.FlinkExecuteJars, workSpaceID, engineID, jobID, command)
+		jobElement, err = printSqlAndElement(ctx, dag, job, ex.sourceClient, ex.udfClient, ex.fileClient, ex.FlinkHome, ex.FlinkExecuteJars, workSpaceID, engineID, jobID, command)
 		if err != nil {
 			return
 		}

@@ -240,6 +240,10 @@ func GetNodeRelation(nodeType string) (nodeRelation NodeRelation, jsonRelation s
 			NodeType:        constants.SqlNode,
 			AllowUpStream:   []string{constants.EmptyNode},
 			AllowDownStream: []string{constants.EmptyNode}})
+		nodeRelations = append(nodeRelations, NodeRelation{
+			NodeType:        constants.JarNode,
+			AllowUpStream:   []string{constants.EmptyNode},
+			AllowDownStream: []string{constants.EmptyNode}})
 	}
 
 	if nodeType == constants.EmptyNode {
@@ -1292,7 +1296,7 @@ func printNode(dag []constants.DagNode, d constants.DagNode, ssql SqlStack) (sql
 	return
 }
 
-func printSqlAndElement(ctx context.Context, dag []constants.DagNode, job constants.FlinkNode, sourceClient SourceClient, udfClient UdfClient, flinkHome string, flinkExecuteJars string, spaceID string, engineID string, jobID string, command string) (jobElement constants.JobElementFlink, err error) {
+func printSqlAndElement(ctx context.Context, dag []constants.DagNode, job constants.FlinkNode, sourceClient SourceClient, udfClient UdfClient, fileClient FileClient, flinkHome string, flinkExecuteJars string, spaceID string, engineID string, jobID string, command string) (jobElement constants.JobElementFlink, err error) {
 	const (
 		sqlMode = iota + 1
 		jarMode
@@ -1305,6 +1309,8 @@ func printSqlAndElement(ctx context.Context, dag []constants.DagNode, job consta
 		engineRequest  constants.EngineRequestOptions
 		engineResponse constants.EngineResponseOptions
 		jobenv         constants.StreamFlowEnv
+		hdfsJarPath    string
+		jarName        string
 	)
 
 	mode = operatorMode
@@ -1331,6 +1337,12 @@ func printSqlAndElement(ctx context.Context, dag []constants.DagNode, job consta
 		return
 	}
 	sql, err = printNode(dag, d, SqlStack{Standard: true})
+
+	if sql.NodeCount != len(dag) && mode != jarMode {
+		err = fmt.Errorf("find alone node. all node must be in one DAG.")
+		return
+	}
+
 	if sql.NodeCount != len(dag) {
 		err = fmt.Errorf("find alone node. all node must be in one DAG.")
 		return
@@ -1370,22 +1382,25 @@ func printSqlAndElement(ctx context.Context, dag []constants.DagNode, job consta
 		}
 
 		jobElement.ZeppelinMainRun = "%sh\n\n"
-
+		if jarName, hdfsJarPath, err = fileClient.GetFileById(ctx, jar.JarPath); err != nil {
+			return
+		}
 		localJarDir = "/tmp/" + jobID
-		localJarPath = localJarDir + "/" + jar.JarPath[strings.LastIndex(jar.JarPath, "/")+1:]
+		localJarPath = localJarDir + "/" + jarName
 		jobElement.ZeppelinMainRun += "mkdir -p " + localJarDir + "\n"
-		jobElement.ZeppelinMainRun += "hadoop fs -get " + jar.JarPath + localJarDir + "\n"
+
+		jobElement.ZeppelinMainRun += fmt.Sprintf("hdfs dfs -get %v %v\n", hdfsJarPath, localJarPath)
 		jobElement.Resources.Jar = localJarDir
 		if len(jar.JarEntry) > 0 {
-			entry = ""
-		} else {
 			entry = " -c '" + jar.JarEntry + "' "
+		} else {
+			entry = ""
 		}
 
 		if jobenv.Parallelism > 0 {
 			jarParallelism = " -p " + fmt.Sprintf("%d", jobenv.Parallelism) + " "
 		} else {
-			jarParallelism = ""
+			jarParallelism = " "
 		}
 		jobElement.ZeppelinMainRun += flinkHome + "/bin/flink run -sae -m " + FlinkHostQuote + ":" + FlinkPortQuote + jarParallelism + entry + localJarPath + " " + jar.JarArgs
 		engineRequest.AccessKey = jar.AccessKey
