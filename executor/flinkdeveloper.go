@@ -25,6 +25,35 @@ var (
 	FlinkPortQuote = Quote + "FLINK_PORT" + Quote
 )
 
+func GetSqlColumnDefine(sqlColumns []constants.SqlColumnType) (define string) {
+	var primaryKey string
+
+	for _, column := range sqlColumns {
+		if define != "" {
+			define += ", "
+		}
+		define += column.Name + " "
+		define += column.Type
+		if column.Length != "" && column.Length != "0" {
+			define += "(" + column.Length + ")"
+		}
+		define += " "
+		if column.Comment != "" {
+			define += "COMMENT '" + column.Comment + "' "
+		}
+		if column.PrimaryKey == "t" {
+			if primaryKey != "" {
+				primaryKey += ", "
+			}
+			primaryKey += column.Name
+		}
+	}
+	if primaryKey != "" {
+		define += ", PRIMARY KEY (" + primaryKey + ") NOT ENFORCED"
+	}
+	return
+}
+
 type SqlStack struct {
 	TableID   []string
 	UDFID     []string
@@ -1498,15 +1527,7 @@ func printSqlAndElement(ctx context.Context, dag []constants.DagNode, job consta
 					return
 				}
 				jobElement.ZeppelinDepends += "("
-				first := true
-				for _, column := range t.SqlColumn {
-					if first == true {
-						jobElement.ZeppelinDepends += column
-						first = false
-					} else {
-						jobElement.ZeppelinDepends += "," + column
-					}
-				}
+				jobElement.ZeppelinDepends += GetSqlColumnDefine(t.SqlColumn)
 				jobElement.ZeppelinDepends += ") WITH (\n"
 				jobElement.ZeppelinDepends += "'connector' = 'jdbc',\n"
 				jobElement.ZeppelinDepends += "'url' = 'jdbc:" + "mysql" + "://" + m.Host + ":" + fmt.Sprintf("%d", m.Port) + "/" + m.Database + "',\n"
@@ -1531,15 +1552,7 @@ func printSqlAndElement(ctx context.Context, dag []constants.DagNode, job consta
 					return
 				}
 				jobElement.ZeppelinDepends += "("
-				first := true
-				for _, column := range t.SqlColumn {
-					if first == true {
-						jobElement.ZeppelinDepends += column
-						first = false
-					} else {
-						jobElement.ZeppelinDepends += "," + column
-					}
-				}
+				jobElement.ZeppelinDepends += GetSqlColumnDefine(t.SqlColumn)
 				jobElement.ZeppelinDepends += ") WITH (\n"
 				jobElement.ZeppelinDepends += "'connector' = 'jdbc',\n"
 				jobElement.ZeppelinDepends += "'url' = 'jdbc:" + "postgresql" + "://" + m.Host + ":" + fmt.Sprintf("%d", m.Port) + "/" + m.Database + "',\n"
@@ -1564,15 +1577,7 @@ func printSqlAndElement(ctx context.Context, dag []constants.DagNode, job consta
 					return
 				}
 				jobElement.ZeppelinDepends += "("
-				first := true
-				for _, column := range t.SqlColumn {
-					if first == true {
-						jobElement.ZeppelinDepends += column
-						first = false
-					} else {
-						jobElement.ZeppelinDepends += "," + column
-					}
-				}
+				jobElement.ZeppelinDepends += GetSqlColumnDefine(t.SqlColumn)
 				jobElement.ZeppelinDepends += ") WITH (\n"
 				jobElement.ZeppelinDepends += "'connector' = 'clickhouse',\n"
 				jobElement.ZeppelinDepends += "'url' = 'clickhouse://" + m.Host + ":" + fmt.Sprintf("%d", m.Port) + "',\n"
@@ -1598,17 +1603,8 @@ func printSqlAndElement(ctx context.Context, dag []constants.DagNode, job consta
 					return
 				}
 				jobElement.ZeppelinDepends += "("
-				first := true
-				for _, column := range t.SqlColumn {
-					if first == true {
-						jobElement.ZeppelinDepends += column
-						first = false
-					} else {
-						jobElement.ZeppelinDepends += "," + column
-					}
-				}
+				jobElement.ZeppelinDepends += GetSqlColumnDefine(t.SqlColumn)
 				jobElement.ZeppelinDepends += ") WITH (\n"
-
 				jobElement.ZeppelinDepends += "'connector' = 'kafka',\n"
 				jobElement.ZeppelinDepends += "'topic' = '" + t.Topic + "',\n"
 				jobElement.ZeppelinDepends += "'properties.bootstrap.servers' = '" + m.Host + ":" + fmt.Sprintf("%d", m.Port) + "',\n"
@@ -1631,17 +1627,8 @@ func printSqlAndElement(ctx context.Context, dag []constants.DagNode, job consta
 					return
 				}
 				jobElement.ZeppelinDepends += "("
-				first := true
-				for _, column := range t.SqlColumn {
-					if first == true {
-						jobElement.ZeppelinDepends += column
-						first = false
-					} else {
-						jobElement.ZeppelinDepends += "," + column
-					}
-				}
+				jobElement.ZeppelinDepends += GetSqlColumnDefine(t.SqlColumn)
 				jobElement.ZeppelinDepends += ") WITH (\n"
-
 				jobElement.ZeppelinDepends += "'connector' = 'filesystem',\n"
 				jobElement.ZeppelinDepends += "'path' = '" + t.Path + "',\n"
 				jobElement.ZeppelinDepends += "'format' = '" + t.Format + "'\n"
@@ -1659,17 +1646,8 @@ func printSqlAndElement(ctx context.Context, dag []constants.DagNode, job consta
 					return
 				}
 				jobElement.ZeppelinDepends += "("
-				first := true
-				for _, column := range t.SqlColumn {
-					if first == true {
-						jobElement.ZeppelinDepends += column
-						first = false
-					} else {
-						jobElement.ZeppelinDepends += "," + column
-					}
-				}
+				jobElement.ZeppelinDepends += GetSqlColumnDefine(t.SqlColumn)
 				jobElement.ZeppelinDepends += ") WITH (\n"
-
 				jobElement.ZeppelinDepends += "'connector' = 'hbase-2.2',\n"
 				jobElement.ZeppelinDepends += "'table-name' = '" + tableName + "',\n"
 				jobElement.ZeppelinDepends += "'zookeeper.quorum' = '" + m.Zookeeper + "',\n"
