@@ -1338,11 +1338,6 @@ func printSqlAndElement(ctx context.Context, dag []constants.DagNode, job consta
 	}
 	sql, err = printNode(dag, d, SqlStack{Standard: true})
 
-	if sql.NodeCount != len(dag) && mode != jarMode {
-		err = fmt.Errorf("find alone node. all node must be in one DAG.")
-		return
-	}
-
 	if sql.NodeCount != len(dag) {
 		err = fmt.Errorf("find alone node. all node must be in one DAG.")
 		return
