@@ -273,6 +273,14 @@ func GetNodeRelation(nodeType string) (nodeRelation NodeRelation, jsonRelation s
 			NodeType:        constants.JarNode,
 			AllowUpStream:   []string{constants.EmptyNode},
 			AllowDownStream: []string{constants.EmptyNode}})
+		nodeRelations = append(nodeRelations, NodeRelation{
+			NodeType:        constants.ScalaNode,
+			AllowUpStream:   []string{constants.EmptyNode},
+			AllowDownStream: []string{constants.EmptyNode}})
+		nodeRelations = append(nodeRelations, NodeRelation{
+			NodeType:        constants.PythonNode,
+			AllowUpStream:   []string{constants.EmptyNode},
+			AllowDownStream: []string{constants.EmptyNode}})
 	}
 
 	if nodeType == constants.EmptyNode {
@@ -1294,6 +1302,30 @@ func printNode(dag []constants.DagNode, d constants.DagNode, ssql SqlStack) (sql
 		sql.Sql = v.Sql
 
 		return
+	} else if d.NodeType == constants.ScalaNode {
+		var v constants.ScalaNodeProperty
+
+		err = json.Unmarshal([]byte(d.Property), &v)
+		if err != nil {
+			return
+		}
+
+		sql = ssql
+		sql.Sql = v.Code
+
+		return
+	} else if d.NodeType == constants.PythonNode {
+		var v constants.PythonNodeProperty
+
+		err = json.Unmarshal([]byte(d.Property), &v)
+		if err != nil {
+			return
+		}
+
+		sql = ssql
+		sql.Sql = v.Code
+
+		return
 	} else if d.NodeType == constants.JarNode {
 		var (
 			checkv = regexp.MustCompile(`^[a-zA-Z0-9_/. ]*$`).MatchString
@@ -1330,7 +1362,10 @@ func printSqlAndElement(ctx context.Context, dag []constants.DagNode, job consta
 		sqlMode = iota + 1
 		jarMode
 		operatorMode
+		scalaMode
+		pythonMode
 	)
+
 	var (
 		d              constants.DagNode
 		sql            SqlStack
@@ -1342,25 +1377,32 @@ func printSqlAndElement(ctx context.Context, dag []constants.DagNode, job consta
 		jarName        string
 	)
 
-	mode = operatorMode
+	if (dag[0].NodeType == constants.SqlNode ||
+		dag[0].NodeType == constants.JarNode ||
+		dag[0].NodeType == constants.ScalaNode ||
+		dag[0].NodeType == constants.PythonNode) && len(dag) != 1 {
+		err = fmt.Errorf("only support one SqlNode/JarNode/ScalaNode/PythonNode")
+		return
+	}
+
 	if dag[0].NodeType == constants.SqlNode {
-		if len(dag) != 1 {
-			err = fmt.Errorf("only support one SqlNode")
-		} else {
-			d, err = getDagNodeByType(dag, constants.SqlNode)
-		}
+		d, err = getDagNodeByType(dag, constants.SqlNode)
 		mode = sqlMode
+	} else if dag[0].NodeType == constants.ScalaNode {
+		d, err = getDagNodeByType(dag, constants.ScalaNode)
+		mode = scalaMode
+	} else if dag[0].NodeType == constants.PythonNode {
+		d, err = getDagNodeByType(dag, constants.PythonNode)
+		mode = pythonMode
 	} else if dag[0].NodeType == constants.SourceNode && len(dag) == 1 {
 		d, err = getDagNodeByType(dag, constants.SourceNode)
+		mode = operatorMode
 	} else if dag[0].NodeType == constants.JarNode {
-		if len(dag) != 1 {
-			err = fmt.Errorf("only support one JarNode")
-		} else {
-			d, err = getDagNodeByType(dag, constants.JarNode)
-		}
+		d, err = getDagNodeByType(dag, constants.JarNode)
 		mode = jarMode
 	} else {
 		d, err = getDagNodeByType(dag, constants.DestNode)
+		mode = operatorMode
 	}
 	if err != nil {
 		return
@@ -1449,13 +1491,19 @@ func printSqlAndElement(ctx context.Context, dag []constants.DagNode, job consta
 		jobElement.ZeppelinConf += "zeppelin.flink.concurrentBatchSql.max 1000000\n"
 
 		// title
-		if job.StreamSql == true {
-			title = "%flink.ssql"
+		if mode == scalaMode {
+			title = "%flink"
+		} else if mode == pythonMode {
+			title = "%flink.ipyflink"
 		} else {
-			title = "%flink.bsql"
-		}
-		if jobenv.Parallelism > 0 {
-			title += "(parallelism=" + fmt.Sprintf("%d", jobenv.Parallelism) + ")"
+			if job.StreamSql == true {
+				title = "%flink.ssql"
+			} else {
+				title = "%flink.bsql"
+			}
+			if jobenv.Parallelism > 0 {
+				title += "(parallelism=" + fmt.Sprintf("%d", jobenv.Parallelism) + ")"
+			}
 		}
 		title += "\n\n"
 
@@ -1669,7 +1717,7 @@ func printSqlAndElement(ctx context.Context, dag []constants.DagNode, job consta
 			sourceType := strings.Split(jar, ":")[0]
 			executeJar := strings.Split(jar, ":")[1]
 
-			if mode == sqlMode {
+			if mode == sqlMode || mode == scalaMode || mode == pythonMode {
 				if len(executeJars) > 0 {
 					executeJars += ","
 				}
