@@ -2,6 +2,8 @@ package executor
 
 import (
 	"context"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/DataWorkbench/common/grpcwrap"
 	"github.com/DataWorkbench/gproto/pkg/fmpb"
@@ -17,14 +19,16 @@ func NewFileClient(conn *grpcwrap.ClientConn) (c FileClient, err error) {
 	return c, nil
 }
 
-func (s *FileClient) GetFileById(ctx context.Context, ID string) (name string, path string, err error) {
-	/*
-		res, err := s.client.GetFileById(ctx, &fmpb.IdRequest{ID: ID})
-		if err != nil {
-			return
-		}
-		name = res.Name
-		path = res.URL
-	*/
+func (s *FileClient) GetFileById(ctx context.Context, ID string) (name string, url string, err error) {
+
+	res, err := s.client.GetFile(ctx, &fmpb.FilesFilterRequest{ID: ID})
+	if err != nil {
+		return
+	} else if res.Total != 1 {
+		err = status.Error(codes.InvalidArgument, "file not exist")
+		return
+	}
+	name = res.Data[0].FileName
+	url = res.Data[0].URL
 	return
 }

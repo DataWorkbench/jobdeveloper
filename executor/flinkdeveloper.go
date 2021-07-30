@@ -1373,8 +1373,6 @@ func printSqlAndElement(ctx context.Context, dag []constants.DagNode, job consta
 		engineRequest  constants.EngineRequestOptions
 		engineResponse constants.EngineResponseOptions
 		jobenv         constants.StreamFlowEnv
-		hdfsJarPath    string
-		jarName        string
 	)
 
 	if (dag[0].NodeType == constants.SqlNode ||
@@ -1437,6 +1435,8 @@ func printSqlAndElement(ctx context.Context, dag []constants.DagNode, job consta
 			jarParallelism string
 			localJarPath   string
 			localJarDir    string
+			jarName        string
+			url            string
 		)
 		// conf
 		jobElement.ZeppelinConf = "%sh.conf\n\n"
@@ -1448,14 +1448,15 @@ func printSqlAndElement(ctx context.Context, dag []constants.DagNode, job consta
 		}
 
 		jobElement.ZeppelinMainRun = "%sh\n\n"
-		if jarName, hdfsJarPath, err = fileClient.GetFileById(ctx, jar.JarPath); err != nil {
+		//TODO jarPath存的是jar包对应filemanager的id
+		if jarName, url, err = fileClient.GetFileById(ctx, jar.JarPath); err != nil {
 			return
 		}
 		localJarDir = "/tmp/" + jobID
 		localJarPath = localJarDir + "/" + jarName
 		jobElement.ZeppelinMainRun += "mkdir -p " + localJarDir + "\n"
 
-		jobElement.ZeppelinMainRun += fmt.Sprintf("hdfs dfs -get %v %v\n", hdfsJarPath, localJarPath)
+		jobElement.ZeppelinMainRun += fmt.Sprintf("hdfs dfs -get %v %v\n", url, localJarPath)
 		jobElement.Resources.Jar = localJarDir
 		if len(jar.JarEntry) > 0 {
 			entry = " -c '" + jar.JarEntry + "' "
