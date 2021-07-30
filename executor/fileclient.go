@@ -2,6 +2,7 @@ package executor
 
 import (
 	"context"
+
 	"github.com/DataWorkbench/common/grpcwrap"
 	"github.com/DataWorkbench/gproto/pkg/fmpb"
 )
@@ -17,11 +18,13 @@ func NewFileClient(conn *grpcwrap.ClientConn) (c FileClient, err error) {
 }
 
 func (s *FileClient) GetFileById(ctx context.Context, ID string) (name string, path string, err error) {
-	res, err := s.client.GetFileById(ctx, &fmpb.IdRequest{ID: ID})
-	if err != nil {
-		return
-	}
-	name = res.Name
-	path = res.URL
+	/*
+		res, err := s.client.GetFileById(ctx, &fmpb.IdRequest{ID: ID})
+		if err != nil {
+			return
+		}
+		name = res.Name
+		path = res.URL
+	*/
 	return
 }
