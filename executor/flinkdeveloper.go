@@ -1448,7 +1448,7 @@ func printSqlAndElement(ctx context.Context, dag []constants.DagNode, job consta
 		}
 
 		jobElement.ZeppelinMainRun = "%sh\n\n" + "useradd -m " + jobID + "\nsu - " + jobID + "\n"
-		if jarName, url, err = fileClient.GetFileById(ctx, jar.JarPath, spaceID); err != nil {
+		if jarName, url, err = fileClient.GetFileById(ctx, jar.JarId, spaceID); err != nil {
 			return
 		}
 		localJarDir = jobID
