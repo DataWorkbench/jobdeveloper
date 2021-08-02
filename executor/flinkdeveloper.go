@@ -1447,11 +1447,11 @@ func printSqlAndElement(ctx context.Context, dag []constants.DagNode, job consta
 			return
 		}
 
-		jobElement.ZeppelinMainRun = "%sh\n\n"
+		jobElement.ZeppelinMainRun = "%sh\n\n" + "useradd -m " + jobID + "\nsu - " + jobID + "\n"
 		if jarName, hdfsJarPath, err = fileClient.GetFileById(ctx, jar.JarPath); err != nil {
 			return
 		}
-		localJarDir = "/tmp/" + jobID
+		localJarDir = jobID
 		localJarPath = localJarDir + "/" + jarName
 		jobElement.ZeppelinMainRun += "mkdir -p " + localJarDir + "\n"
 
@@ -1818,7 +1818,8 @@ func FlinkJobFree(jobResources string) (freeResources string, err error) {
 
 	if v.Jar != "" {
 		r.ZeppelinDeleteJar = "%sh\n\n"
-		r.ZeppelinDeleteJar += "rm -rf " + v.Jar
+		r.ZeppelinDeleteJar += "rm -rf /home/" + v.JobID + "\n"
+		r.ZeppelinDeleteJar += "deluser " + v.JobID
 
 		freeResourcesByte, _ := json.Marshal(r)
 		freeResources = string(freeResourcesByte)
