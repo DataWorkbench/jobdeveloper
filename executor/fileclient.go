@@ -19,9 +19,9 @@ func NewFileClient(conn *grpcwrap.ClientConn) (c FileClient, err error) {
 	return c, nil
 }
 
-func (s *FileClient) GetFileById(ctx context.Context, ID string) (name string, url string, err error) {
+func (s *FileClient) GetFileById(ctx context.Context, id, spaceId string) (name string, url string, err error) {
 
-	res, err := s.client.GetFile(ctx, &fmpb.FilesFilterRequest{ID: ID})
+	res, err := s.client.GetFile(ctx, &fmpb.FilesFilterRequest{ID: id, SpaceID: spaceId})
 	if err != nil {
 		return
 	} else if res.Total != 1 {

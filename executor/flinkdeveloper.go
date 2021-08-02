@@ -1449,7 +1449,7 @@ func printSqlAndElement(ctx context.Context, dag []constants.DagNode, job consta
 
 		jobElement.ZeppelinMainRun = "%sh\n\n"
 		//TODO jarPath存的是jar包对应filemanager的id
-		if jarName, url, err = fileClient.GetFileById(ctx, jar.JarPath); err != nil {
+		if jarName, url, err = fileClient.GetFileById(ctx, jar.JarId, spaceID); err != nil {
 			return
 		}
 		localJarDir = "/tmp/" + jobID

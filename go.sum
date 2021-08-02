@@ -15,6 +15,8 @@ github.com/BurntSushi/toml v0.3.1/go.mod h1:xHWCNGjB5oqiDr8zfno3MHue2Ht5sIBksp03
 github.com/BurntSushi/xgb v0.0.0-20160522181843-27f122750802/go.mod h1:IVnqGOEym/WlBOVXweHU+Q+/VP0lqqI8lqeDx9IjBqo=
 github.com/DataWorkbench/common v0.0.0-20210729132004-85f50bc2bde6 h1:k1wlVzGp53Z0WOFgr67M0EYZ0Zu1v0TC+/YJvYWA150=
 github.com/DataWorkbench/common v0.0.0-20210729132004-85f50bc2bde6/go.mod h1:VJ49+jUYrhdf+sqnk8dNEbf35UCiahwQe+Yahpct1lg=
+github.com/DataWorkbench/common v0.0.0-20210802061550-3903fdd9f2d9 h1:8xXdzq+EJKl9riKEsAW4JDiHenRkbbquyC3KSuy49OM=
+github.com/DataWorkbench/common v0.0.0-20210802061550-3903fdd9f2d9/go.mod h1:zVF6b1CGPMcnRuSeszYj4LfVvWXWyc0N0LHmQOzQZe4=
 github.com/DataWorkbench/glog v0.0.0-20210727202626-c7845b2d263d h1:pWg9ECxpHlXCkyau9lAclD4lEOwph6fz5AgNPwbagRs=
 github.com/DataWorkbench/glog v0.0.0-20210727202626-c7845b2d263d/go.mod h1:zymxJLXn162xdWYUqIb729S3ZzRQpdTj/LwnW+xxru4=
 github.com/DataWorkbench/gproto v0.0.0-20210719082127-d4d3e4afbeab/go.mod h1:ZCyz1BvwA0kGnybpNCnBRfFqgDKu73YFQ9yE/rUSRfo=
@@ -404,6 +406,7 @@ github.com/tmc/grpc-websocket-proxy v0.0.0-20170815181823-89b8d40f7ca8/go.mod h1
 github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=
 github.com/uber/jaeger-client-go v2.25.0+incompatible h1:IxcNZ7WRY1Y3G4poYlx24szfsn/3LvK9QHCq9oQw8+U=
 github.com/uber/jaeger-client-go v2.25.0+incompatible/go.mod h1:WVhlPFC8FDjOFMMWRy2pZqQJSXxYSwNYOkTr/Z6d3Kk=
+github.com/uber/jaeger-client-go v2.29.1+incompatible/go.mod h1:WVhlPFC8FDjOFMMWRy2pZqQJSXxYSwNYOkTr/Z6d3Kk=
 github.com/uber/jaeger-lib v2.4.0+incompatible h1:fY7QsGQWiCt8pajv4r7JEvmATdCVaWxXbjwyYwsNaLQ=
 github.com/uber/jaeger-lib v2.4.0+incompatible/go.mod h1:ComeNDZlWwrWnDv8aPp0Ba6+uUTzImX/AauajbLI56U=
 github.com/urfave/cli v1.20.0/go.mod h1:70zkFmudgCuE/ngEzBv17Jvp/497gISqfk5gWijbERA=
