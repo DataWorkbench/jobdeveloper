@@ -31,7 +31,7 @@ func NewJobDeveloperExecutor(l *glog.Logger, sClient SourceClient, uClient UdfCl
 }
 
 func (ex *JobdeveloperExecutor) JobParser(ctx context.Context, jobID string, workSpaceID string, engineID string, engineType string, command string, jobInfo string) (jobElementString string, err error) {
-	if engineType == constants.ServerTypeFlink {
+	if engineType == constants.EngineTypeFlink {
 		var (
 			dag        []constants.DagNode
 			job        constants.FlinkNode
@@ -61,7 +61,7 @@ func (ex *JobdeveloperExecutor) JobParser(ctx context.Context, jobID string, wor
 }
 
 func (ex *JobdeveloperExecutor) JobFree(ctx context.Context, engineType string, jobResources string) (freeResources string, err error) {
-	if engineType == constants.ServerTypeFlink {
+	if engineType == constants.EngineTypeFlink {
 		freeResources, err = FlinkJobFree(jobResources)
 	}
 	return

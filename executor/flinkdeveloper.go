@@ -1752,16 +1752,20 @@ func printSqlAndElement(ctx context.Context, dag []constants.DagNode, job consta
 
 		firstScala := true
 		firstJar := true
+		firstPython := true
 		for _, udfInfo := range udfListRep.Infos {
-			if udfInfo.UdfType == constants.UdfTypePython {
-				err = fmt.Errorf("don't support python udf")
-				return
-			} else if udfInfo.UdfType == constants.UdfTypeScala {
+			if udfInfo.UdfType == constants.PythonUDF || udfInfo.UdfType == constants.PythonUDTF {
+				if firstPython == true {
+					jobElement.ZeppelinPythonUDF = "%flink.ipyflink\n\n"
+					firstPython = false
+				}
+				jobElement.ZeppelinPythonUDF += udfInfo.Define + "\n\n"
+			} else if udfInfo.UdfType == constants.ScalaUDF || udfInfo.UdfType == constants.ScalaUDTF || udfInfo.UdfType == constants.ScalaUDTTF {
 				if firstScala == true {
-					jobElement.ZeppelinFuncScala = "%flink\n\n"
+					jobElement.ZeppelinScalaUDF = "%flink\n\n"
 					firstScala = false
 				}
-				jobElement.ZeppelinFuncScala += udfInfo.Define + "\n\n"
+				jobElement.ZeppelinScalaUDF += udfInfo.Define + "\n\n"
 			} else {
 				if firstJar == true {
 					jobElement.ZeppelinConf += "flink.udf.jars " + udfInfo.Define
@@ -1812,7 +1816,6 @@ func FlinkJobFree(jobResources string) (freeResources string, err error) {
 	}
 
 	if v.JobID != "" {
-		//TODO
 		FreeEngine(v.JobID)
 	}
 
