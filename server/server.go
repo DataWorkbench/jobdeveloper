@@ -9,7 +9,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/DataWorkbench/common/trace"
+	"github.com/DataWorkbench/common/gtrace"
 	"github.com/DataWorkbench/common/utils/buildinfo"
 	"github.com/DataWorkbench/glog"
 	"google.golang.org/grpc"
@@ -41,7 +41,7 @@ func Start() (err error) {
 	var (
 		rpcServer         *grpcwrap.Server
 		metricServer      *metrics.Server
-		tracer            trace.Tracer
+		tracer            gtrace.Tracer
 		tracerCloser      io.Closer
 		sourceManagerConn *grpcwrap.ClientConn
 		sourceClient      executor.SourceClient
@@ -60,7 +60,7 @@ func Start() (err error) {
 		_ = lp.Close()
 	}()
 
-	tracer, tracerCloser, err = trace.New(cfg.Tracer)
+	tracer, tracerCloser, err = gtrace.New(cfg.Tracer)
 	if err != nil {
 		return
 	}

@@ -7,8 +7,8 @@ import (
 	"time"
 
 	"github.com/DataWorkbench/common/grpcwrap"
+	"github.com/DataWorkbench/common/gtrace"
 	"github.com/DataWorkbench/common/metrics"
-	"github.com/DataWorkbench/common/trace"
 	"github.com/DataWorkbench/loader"
 	"github.com/go-playground/validator/v10"
 	"gopkg.in/yaml.v3"
@@ -30,7 +30,7 @@ type Config struct {
 	SourcemanagerServer      *grpcwrap.ClientConfig `json:"sourcemanager_server"      yaml:"sourcemanager_server"      env:"SOURCEMANAGER_SERVER" validate:"required"`
 	UdfmanagerServer         *grpcwrap.ClientConfig `json:"udfmanager_server"      yaml:"udfmanager_server"      env:"UDFMANAGER_SERVER" validate:"required"`
 	FilemanagerServer        *grpcwrap.ClientConfig `json:"filemanager_server" yaml:"filemanager_server" env:"FILEMANAGER_SERVER" validate:"required"`
-	Tracer                   *trace.Config          `json:"tracer"         yaml:"tracer"         env:"TRACER"              validate:"required"`
+	Tracer                   *gtrace.Config         `json:"tracer"         yaml:"tracer"         env:"TRACER"              validate:"required"`
 }
 
 func loadFromFile(cfg *Config) (err error) {
