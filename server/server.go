@@ -101,7 +101,7 @@ func Start() (err error) {
 		return
 	}
 	rpcServer.Register(func(s *grpc.Server) {
-		jobdevpb.RegisterJobdeveloperServer(s, NewJobDeveloperServer(executor.NewJobDeveloperExecutor(lp, sourceClient, udfClient, fileClient, cfg.ZeppelinFlinkHome, cfg.ZeppelinFlinkExecuteJars)))
+		jobdevpb.RegisterJobdeveloperServer(s, NewJobDeveloperServer(executor.NewJobDeveloperExecutor(lp, sourceClient, udfClient, fileClient, cfg.ZeppelinFlinkHome, cfg.ZeppelinHadoopConf, cfg.ZeppelinFlinkExecuteJars)))
 	})
 
 	// handle signal
