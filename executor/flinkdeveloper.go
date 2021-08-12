@@ -1357,7 +1357,7 @@ func printNode(dag []constants.DagNode, d constants.DagNode, ssql SqlStack) (sql
 	return
 }
 
-func printSqlAndElement(ctx context.Context, dag []constants.DagNode, job constants.FlinkNode, sourceClient SourceClient, udfClient UdfClient, fileClient FileClient, flinkHome string, flinkExecuteJars string, spaceID string, engineID string, jobID string, command string) (jobElement constants.JobElementFlink, err error) {
+func printSqlAndElement(ctx context.Context, dag []constants.DagNode, job constants.FlinkNode, sourceClient SourceClient, udfClient UdfClient, fileClient FileClient, flinkHome string, hadoopConf string, flinkExecuteJars string, spaceID string, engineID string, jobID string, command string) (jobElement constants.JobElementFlink, err error) {
 	const (
 		sqlMode = iota + 1
 		jarMode
@@ -1484,6 +1484,7 @@ func printSqlAndElement(ctx context.Context, dag []constants.DagNode, job consta
 		// conf
 		jobElement.ZeppelinConf = "%flink.conf\n\n"
 		jobElement.ZeppelinConf += "FLINK_HOME " + flinkHome + "\n"
+		jobElement.ZeppelinConf += "HADOOP_CONF_DIR " + hadoopConf + "\n"
 		jobElement.ZeppelinConf += "flink.execution.mode remote\n"
 		jobElement.ZeppelinConf += "flink.execution.remote.host " + FlinkHostQuote + "\n"
 		jobElement.ZeppelinConf += "flink.execution.remote.port " + FlinkPortQuote + "\n"

@@ -26,6 +26,7 @@ type Config struct {
 	GRPCServer               *grpcwrap.ServerConfig `json:"grpc_server"    yaml:"grpc_server"    env:"GRPC_SERVER"         validate:"required"`
 	MetricsServer            *metrics.Config        `json:"metrics_server" yaml:"metrics_server" env:"METRICS_SERVER"      validate:"required"`
 	ZeppelinFlinkHome        string                 `json:"zeppelin_flink_home"      yaml:"zeppelin_flink_home"      env:"ZEPPELIN_FLINK_HOME" validate:"required"`
+	ZeppelinHadoopConf       string                 `json:"zeppelin_hadoop_conf"   yaml:"zeppelin_hadoop_conf" env:"ZEPPELIN_HADOOP_CONF" validate:"required"`
 	ZeppelinFlinkExecuteJars string                 `json:"zeppelin_flink_execute_jars"      yaml:"zeppelin_flink_execute_jars"      env:"ZEPPELIN_FLINK_EXECUTE_JARS" validate:"required"`
 	SourcemanagerServer      *grpcwrap.ClientConfig `json:"sourcemanager_server"      yaml:"sourcemanager_server"      env:"SOURCEMANAGER_SERVER" validate:"required"`
 	UdfmanagerServer         *grpcwrap.ClientConfig `json:"udfmanager_server"      yaml:"udfmanager_server"      env:"UDFMANAGER_SERVER" validate:"required"`
