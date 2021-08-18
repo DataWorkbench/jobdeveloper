@@ -16,7 +16,7 @@ func NewFileClient(conn *grpcwrap.ClientConn) (c FileClient, err error) {
 }
 
 func (s *FileClient) GetFileById(ctx context.Context, id string) (name string, url string, err error) {
-	res, err := s.client.DescribeFile(ctx, &fmpb.DescribeRequest{Id: id})
+	res, err := s.client.DescribeFile(ctx, &fmpb.DescribeRequest{FileId: id})
 	if err != nil {
 		return
 	}
