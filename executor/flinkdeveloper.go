@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/DataWorkbench/gproto/pkg/model"
 	"reflect"
 	"regexp"
 	"strings"
@@ -1372,7 +1373,7 @@ func printSqlAndElement(ctx context.Context, dag []constants.DagNode, job consta
 		mode           int32
 		engineRequest  constants.EngineRequestOptions
 		engineResponse constants.EngineResponseOptions
-		jobenv         constants.StreamFlowEnv
+		jobenv         model.StreamFlowEnv
 	)
 
 	if (dag[0].NodeType == constants.SqlNode ||
@@ -1421,8 +1422,8 @@ func printSqlAndElement(ctx context.Context, dag []constants.DagNode, job consta
 	engineRequest.EngineID = engineID
 	engineRequest.WorkspaceID = spaceID
 	engineRequest.Parallelism = jobenv.Parallelism
-	engineRequest.JobCU = jobenv.JobCU
-	engineRequest.TaskCU = jobenv.TaskCU
+	engineRequest.JobCU = jobenv.JobCu
+	engineRequest.TaskCU = jobenv.TaskCu
 	engineRequest.TaskNum = jobenv.TaskNum
 	if mode == jarMode {
 		if command == constants.PreviewCommand || command == constants.SyntaxCheckCommand {
@@ -1702,6 +1703,29 @@ func printSqlAndElement(ctx context.Context, dag []constants.DagNode, job consta
 				jobElement.ZeppelinDepends += "'zookeeper.quorum' = '" + m.Zookeeper + "',\n"
 				jobElement.ZeppelinDepends += "'zookeeper.znode.parent' = '" + m.Znode + "'\n"
 
+				for _, opt := range t.ConnectorOptions {
+					jobElement.ZeppelinDepends += "," + opt + "\n"
+				}
+			} else if sourceType == constants.SourceTypeFtp {
+				var m constants.SourceFtpParams
+				var t constants.FlinkTableDefineFtp
+				if err = json.Unmarshal([]byte(ManagerUrl), &m); err != nil {
+					return
+				}
+				if err = json.Unmarshal([]byte(tableUrl), &t); err != nil {
+					return
+				}
+				jobElement.ZeppelinDepends += "("
+				jobElement.ZeppelinDepends += GetSqlColumnDefine(t.SqlColumn)
+				jobElement.ZeppelinDepends += ") WITH (\n"
+				jobElement.ZeppelinDepends += "'connector' = 'ftp',\n"
+				jobElement.ZeppelinDepends += "'host' = '" + m.Host + "',\n"
+				jobElement.ZeppelinDepends += "'port' = '" + fmt.Sprintf("%d",m.Port) + "',\n"
+				jobElement.ZeppelinDepends += "'path' = '" + t.Path + "',\n"
+				jobElement.ZeppelinDepends += "'format' = '" + t.Format + "'\n"
+				for _, opt := range m.ConnectorOptions {
+					jobElement.ZeppelinDepends += "," + opt + "\n"
+				}
 				for _, opt := range t.ConnectorOptions {
 					jobElement.ZeppelinDepends += "," + opt + "\n"
 				}
