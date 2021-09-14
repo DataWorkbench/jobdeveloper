@@ -12,7 +12,6 @@ import (
 
 	"github.com/DataWorkbench/common/constants"
 	"github.com/DataWorkbench/gproto/pkg/enginepb"
-	"github.com/DataWorkbench/gproto/pkg/model"
 	"github.com/DataWorkbench/gproto/pkg/request"
 	"github.com/DataWorkbench/gproto/pkg/response"
 )
@@ -1470,7 +1469,7 @@ func printSqlAndElement(ctx context.Context, dag []*model.FlinkDagNode, job *req
 		}
 
 		jobElement.ZeppelinMainRun = "%sh\n\n" + "useradd -m " + job.Job.JobID + "\nsu - " + job.Job.JobID + "\n"
-		if jarName, url, err = fileClient.GetFileById(ctx, jar.JarID, job.Job.SpaceID); err != nil {
+		if jarName, url, err = fileClient.GetFileById(ctx, jar.JarID); err != nil {
 			return
 		}
 		localJarDir = job.Job.JobID
@@ -1690,14 +1689,9 @@ func printSqlAndElement(ctx context.Context, dag []*model.FlinkDagNode, job *req
 					jobElement.ZeppelinDepends += ",'" + opt.Name + "' = '" + opt.Value + "'\n"
 				}
 			} else if sourceType == constants.SourceTypeFtp {
-				var m constants.SourceFtpParams
-				var t constants.FlinkTableDefineFtp
-				if err = json.Unmarshal([]byte(ManagerUrl), &m); err != nil {
-					return
-				}
-				if err = json.Unmarshal([]byte(tableUrl), &t); err != nil {
-					return
-				}
+				m := ManagerUrl.Ftp
+				t := tableUrl.Ftp
+
 				jobElement.ZeppelinDepends += "("
 				jobElement.ZeppelinDepends += GetSqlColumnDefine(t.SqlColumn)
 				jobElement.ZeppelinDepends += ") WITH (\n"
@@ -1706,11 +1700,8 @@ func printSqlAndElement(ctx context.Context, dag []*model.FlinkDagNode, job *req
 				jobElement.ZeppelinDepends += "'port' = '" + fmt.Sprintf("%d", m.Port) + "',\n"
 				jobElement.ZeppelinDepends += "'path' = '" + t.Path + "',\n"
 				jobElement.ZeppelinDepends += "'format' = '" + t.Format + "'\n"
-				for _, opt := range m.ConnectorOptions {
-					jobElement.ZeppelinDepends += "," + opt + "\n"
-				}
 				for _, opt := range t.ConnectorOptions {
-					jobElement.ZeppelinDepends += "," + opt + "\n"
+					jobElement.ZeppelinDepends += ",'" + opt.Name + "' = '" + opt.Value + "'\n"
 				}
 			} else {
 				err = fmt.Errorf("don't support this source mananger %s", sourceType)
