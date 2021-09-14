@@ -26,6 +26,11 @@ udfmanager_server:
   log_level: 2
   log_verbosity: 99
 
+enginemanager_server:
+  address: "127.0.0.1:59001"
+  log_level: 2
+  log_verbosity: 99
+
 tracer:
   service_name: "jobdeveloper"
   local_agent: "127.0.0.1:6831"

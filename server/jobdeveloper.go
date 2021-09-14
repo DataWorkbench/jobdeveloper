@@ -5,6 +5,8 @@ import (
 
 	"github.com/DataWorkbench/gproto/pkg/jobdevpb"
 	"github.com/DataWorkbench/gproto/pkg/model"
+	"github.com/DataWorkbench/gproto/pkg/request"
+	"github.com/DataWorkbench/gproto/pkg/response"
 
 	"github.com/DataWorkbench/jobdeveloper/executor"
 )
@@ -22,21 +24,17 @@ func NewJobDeveloperServer(executor *executor.JobdeveloperExecutor) *JobDevelope
 	}
 }
 
-func (s *JobDeveloperServer) JobParser(ctx context.Context, req *jobdevpb.JobParserRequest) (r *jobdevpb.JobElement, err error) {
-	var resp jobdevpb.JobElement
-	resp.JobElement, err = s.executor.JobParser(ctx, req.GetID(), req.GetWorkspaceID(), req.GetEngineID(), req.GetEngineType(), req.GetCommand(), req.GetJobInfo())
+func (s *JobDeveloperServer) JobParser(ctx context.Context, req *request.JobParser) (*response.JobParser, error) {
+	resp, err := s.executor.JobParser(ctx, req)
 	return &resp, err
 }
 
-func (s *JobDeveloperServer) NodeRelations(ctx context.Context, req *model.EmptyStruct) (*jobdevpb.Relations, error) {
-	var relations jobdevpb.Relations
-	r, err := s.executor.FlinkNodeRelations(ctx)
-	relations.Relations = r
-	return &relations, err
+func (s *JobDeveloperServer) NodeRelations(ctx context.Context, req *model.EmptyStruct) (*response.NodeRelations, error) {
+	resp, err := s.executor.FlinkNodeRelations(ctx)
+	return &resp, err
 }
 
-func (s *JobDeveloperServer) JobFree(ctx context.Context, req *jobdevpb.JobFreeRequest) (r *jobdevpb.JobFreeAction, err error) {
-	var resp jobdevpb.JobFreeAction
-	resp.JobResources, err = s.executor.JobFree(ctx, req.GetEngineType(), req.GetJobResources())
+func (s *JobDeveloperServer) JobFree(ctx context.Context, req *request.JobFree) (*response.JobFree, error) {
+	resp, err := s.executor.JobFree(ctx, req)
 	return &resp, err
 }

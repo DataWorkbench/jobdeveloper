@@ -4,6 +4,8 @@ import (
 	"context"
 
 	"github.com/DataWorkbench/common/grpcwrap"
+	"github.com/DataWorkbench/gproto/pkg/request"
+	"github.com/DataWorkbench/gproto/pkg/response"
 	"github.com/DataWorkbench/gproto/pkg/udfpb"
 )
 
@@ -18,18 +20,18 @@ func NewUdfClient(conn *grpcwrap.ClientConn) (c UdfClient, err error) {
 
 func (s *UdfClient) DescribeUdfManager(ctx context.Context, ID string) (udfType string, name string, define string, err error) {
 	var (
-		req udfpb.DescribeRequest
-		rep *udfpb.InfoReply
+		req  request.DescribeUDF
+		resp *response.DescribeUDF
 	)
 
-	req.ID = ID
-	rep, err = s.client.Describe(ctx, &req)
+	req.UDFID = ID
+	resp, err = s.client.Describe(ctx, &req)
 	if err != nil {
 		return
 	}
-	udfType = rep.GetUdfType()
-	name = rep.GetName()
-	define = rep.GetDefine()
+	udfType = resp.Info.GetUDFType()
+	name = resp.Info.GetName()
+	define = resp.Info.GetDefine()
 
 	return
 }

@@ -4,13 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/DataWorkbench/gproto/pkg/model"
 	"reflect"
 	"regexp"
 	"strings"
 
+	"github.com/DataWorkbench/gproto/pkg/model"
+
 	"github.com/DataWorkbench/common/constants"
-	"github.com/DataWorkbench/gproto/pkg/udfpb"
+	"github.com/DataWorkbench/gproto/pkg/enginepb"
+	"github.com/DataWorkbench/gproto/pkg/model"
+	"github.com/DataWorkbench/gproto/pkg/request"
+	"github.com/DataWorkbench/gproto/pkg/response"
 )
 
 type NodeRelation struct {
@@ -26,14 +30,29 @@ var (
 	FlinkPortQuote = Quote + "FLINK_PORT" + Quote
 )
 
-func GetSqlColumnDefine(sqlColumns []constants.SqlColumnType) (define string) {
+func GetSqlColumnDefine(sqlColumns []*model.SqlColumnType) (define string) {
 	var primaryKey string
+	var boolMap map[string]bool
+
+	boolMap = make(map[string]bool)
+	boolMap["on"] = true
+	boolMap["off"] = false
+	boolMap["true"] = true
+	boolMap["false"] = false
+	boolMap["yes"] = true
+	boolMap["no"] = false
+	boolMap["t"] = true
+	boolMap["f"] = false
+	boolMap["T"] = true
+	boolMap["F"] = false
+	boolMap["1"] = true
+	boolMap["0"] = false
 
 	for _, column := range sqlColumns {
 		if define != "" {
 			define += ", "
 		}
-		define += column.Name + " "
+		define += column.Column + " "
 		define += column.Type
 		if column.Length != "" && column.Length != "0" {
 			define += "(" + column.Length + ")"
@@ -42,11 +61,12 @@ func GetSqlColumnDefine(sqlColumns []constants.SqlColumnType) (define string) {
 		if column.Comment != "" {
 			define += "COMMENT '" + column.Comment + "' "
 		}
-		if column.PrimaryKey == "t" {
+
+		if boolMap[column.PrimaryKey] == true {
 			if primaryKey != "" {
 				primaryKey += ", "
 			}
-			primaryKey += column.Name
+			primaryKey += column.Column
 		}
 	}
 	if primaryKey != "" {
@@ -63,7 +83,7 @@ type SqlStack struct {
 	Sql       string
 	Table     string
 	Distinct  string
-	Column    []constants.ColumnAs
+	Column    []model.ColumnAs
 	TableAs   string
 	Other     string
 }
@@ -84,13 +104,13 @@ func In(haystack interface{}, needle interface{}) bool {
 	return false
 }
 
-func checkDagNodeRelations(dag []constants.DagNode) (err error) {
+func checkDagNodeRelations(dag []*model.FlinkDagNode) (err error) {
 	for _, d := range dag {
 		var (
 			relation          NodeRelation
-			upStreamNode      constants.DagNode
-			upStreamRightNode constants.DagNode
-			downStreamNode    constants.DagNode
+			upStreamNode      model.FlinkDagNode
+			upStreamRightNode model.FlinkDagNode
+			downStreamNode    model.FlinkDagNode
 		)
 
 		relation, _, err = GetNodeRelation(d.NodeType)
@@ -130,15 +150,15 @@ func checkDagNodeRelations(dag []constants.DagNode) (err error) {
 	return
 }
 
-func getDagNode(dag []constants.DagNode, nodeID string) (node constants.DagNode, err error) {
+func getDagNode(dag []*model.FlinkDagNode, nodeID string) (node model.FlinkDagNode, err error) {
 	if nodeID == "" {
-		node = constants.DagNode{NodeType: constants.EmptyNode}
+		node = model.FlinkDagNode{NodeType: constants.EmptyNode}
 	} else {
 		var found bool
 
 		for _, d := range dag {
 			if d.NodeID == nodeID {
-				node = d
+				node = *d
 				found = true
 				break
 			}
@@ -152,12 +172,12 @@ func getDagNode(dag []constants.DagNode, nodeID string) (node constants.DagNode,
 	return
 }
 
-func getDagNodeByType(dag []constants.DagNode, nodeType string) (node constants.DagNode, err error) {
+func getDagNodeByType(dag []*model.FlinkDagNode, nodeType string) (node model.FlinkDagNode, err error) {
 	var found bool
 
 	for _, d := range dag {
 		if d.NodeType == nodeType {
-			node = d
+			node = *d
 			found = true
 		}
 	}
@@ -169,30 +189,13 @@ func getDagNodeByType(dag []constants.DagNode, nodeType string) (node constants.
 	return
 }
 
-func turnToDagNode(dagstr constants.JSONString) (dag []constants.DagNode, err error) {
-	err = json.Unmarshal([]byte(dagstr), &dag)
-	if err != nil {
-		return
-	}
-	err = checkDagNodeRelations(dag)
-	if err != nil {
-		return
-	}
-
-	return
-}
-
 func GetNodeRelation(nodeType string) (nodeRelation NodeRelation, jsonRelation string, err error) {
 	var found bool
 
 	if len(nodeRelations) == 0 {
 		nodeRelations = append(nodeRelations, NodeRelation{
-			NodeType:        constants.UDFNode,
-			AllowUpStream:   []string{constants.EmptyNode, constants.UDFNode, constants.SourceNode, constants.OrderByNode, constants.LimitNode, constants.OffsetNode, constants.FetchNode, constants.JoinNode, constants.UnionNode, constants.ExceptNode, constants.IntersectNode, constants.GroupByNode, constants.HavingNode, constants.WindowNode},
-			AllowDownStream: []string{constants.ValuesNode, constants.SourceNode, constants.FilterNode, constants.ConstNode}})
-		nodeRelations = append(nodeRelations, NodeRelation{
 			NodeType:        constants.ValuesNode,
-			AllowUpStream:   []string{constants.EmptyNode, constants.UDFNode},
+			AllowUpStream:   []string{constants.EmptyNode},
 			AllowDownStream: []string{constants.DestNode}})
 		nodeRelations = append(nodeRelations, NodeRelation{
 			NodeType:        constants.DestNode,
@@ -200,31 +203,35 @@ func GetNodeRelation(nodeType string) (nodeRelation NodeRelation, jsonRelation s
 			AllowDownStream: []string{constants.EmptyNode}})
 		nodeRelations = append(nodeRelations, NodeRelation{
 			NodeType:        constants.ConstNode,
-			AllowUpStream:   []string{constants.EmptyNode, constants.UDFNode},
+			AllowUpStream:   []string{constants.EmptyNode},
 			AllowDownStream: []string{constants.DestNode, constants.JoinNode, constants.UnionNode, constants.ExceptNode, constants.IntersectNode}})
 		nodeRelations = append(nodeRelations, NodeRelation{
+			NodeType:        constants.DimensionNode,
+			AllowUpStream:   []string{constants.EmptyNode},
+			AllowDownStream: []string{constants.DestNode, constants.JoinNode}}) //downstream EmptyNode used for sql preview
+		nodeRelations = append(nodeRelations, NodeRelation{
 			NodeType:        constants.SourceNode,
-			AllowUpStream:   []string{constants.EmptyNode, constants.UDFNode},
+			AllowUpStream:   []string{constants.EmptyNode},
 			AllowDownStream: []string{constants.DestNode, constants.OrderByNode, constants.LimitNode, constants.OffsetNode, constants.FetchNode, constants.JoinNode, constants.UnionNode, constants.ExceptNode, constants.IntersectNode, constants.FilterNode, constants.GroupByNode, constants.HavingNode, constants.WindowNode, constants.UDTFNode, constants.EmptyNode}}) //downstream EmptyNode used for sql preview
 		nodeRelations = append(nodeRelations, NodeRelation{
 			NodeType:        constants.OrderByNode,
 			AllowUpStream:   []string{constants.SourceNode, constants.FilterNode, constants.GroupByNode, constants.HavingNode, constants.WindowNode, constants.JoinNode, constants.UnionNode, constants.ExceptNode, constants.IntersectNode},
-			AllowDownStream: []string{constants.LimitNode, constants.OffsetNode, constants.FetchNode, constants.JoinNode, constants.UnionNode, constants.ExceptNode, constants.IntersectNode, constants.DestNode, constants.UDFNode}})
+			AllowDownStream: []string{constants.LimitNode, constants.OffsetNode, constants.FetchNode, constants.JoinNode, constants.UnionNode, constants.ExceptNode, constants.IntersectNode, constants.DestNode}})
 		nodeRelations = append(nodeRelations, NodeRelation{
 			NodeType:        constants.LimitNode,
 			AllowUpStream:   []string{constants.SourceNode, constants.OrderByNode, constants.FilterNode, constants.GroupByNode, constants.HavingNode, constants.WindowNode, constants.JoinNode, constants.UnionNode, constants.ExceptNode, constants.IntersectNode},
-			AllowDownStream: []string{constants.OffsetNode, constants.FetchNode, constants.JoinNode, constants.UnionNode, constants.ExceptNode, constants.IntersectNode, constants.UDFNode, constants.DestNode}})
+			AllowDownStream: []string{constants.OffsetNode, constants.FetchNode, constants.JoinNode, constants.UnionNode, constants.ExceptNode, constants.IntersectNode, constants.DestNode}})
 		nodeRelations = append(nodeRelations, NodeRelation{
 			NodeType:        constants.OffsetNode,
 			AllowUpStream:   []string{constants.SourceNode, constants.OrderByNode, constants.LimitNode, constants.FilterNode, constants.GroupByNode, constants.HavingNode, constants.WindowNode, constants.JoinNode, constants.UnionNode, constants.ExceptNode, constants.IntersectNode},
-			AllowDownStream: []string{constants.FetchNode, constants.JoinNode, constants.UnionNode, constants.ExceptNode, constants.IntersectNode, constants.UDFNode, constants.DestNode}})
+			AllowDownStream: []string{constants.FetchNode, constants.JoinNode, constants.UnionNode, constants.ExceptNode, constants.IntersectNode, constants.DestNode}})
 		nodeRelations = append(nodeRelations, NodeRelation{
 			NodeType:        constants.FetchNode,
 			AllowUpStream:   []string{constants.SourceNode, constants.OrderByNode, constants.LimitNode, constants.OffsetNode, constants.FilterNode, constants.GroupByNode, constants.HavingNode, constants.WindowNode, constants.JoinNode, constants.UnionNode, constants.ExceptNode, constants.IntersectNode},
-			AllowDownStream: []string{constants.JoinNode, constants.UnionNode, constants.ExceptNode, constants.IntersectNode, constants.UDFNode, constants.DestNode}})
+			AllowDownStream: []string{constants.JoinNode, constants.UnionNode, constants.ExceptNode, constants.IntersectNode, constants.DestNode}})
 		nodeRelations = append(nodeRelations, NodeRelation{
 			NodeType:        constants.FilterNode,
-			AllowUpStream:   []string{constants.SourceNode, constants.UDFNode, constants.ConstNode, constants.JoinNode, constants.UnionNode, constants.ExceptNode, constants.IntersectNode, constants.UDTTFNode},
+			AllowUpStream:   []string{constants.SourceNode, constants.ConstNode, constants.JoinNode, constants.UnionNode, constants.ExceptNode, constants.IntersectNode, constants.UDTTFNode},
 			AllowDownStream: []string{constants.DestNode, constants.GroupByNode, constants.HavingNode, constants.WindowNode, constants.OrderByNode, constants.LimitNode, constants.OffsetNode, constants.FetchNode, constants.JoinNode, constants.UnionNode, constants.ExceptNode, constants.IntersectNode}})
 		nodeRelations = append(nodeRelations, NodeRelation{
 			NodeType:        constants.UnionNode,
@@ -256,16 +263,12 @@ func GetNodeRelation(nodeType string) (nodeRelation NodeRelation, jsonRelation s
 			AllowDownStream: []string{constants.JoinNode}})
 		nodeRelations = append(nodeRelations, NodeRelation{
 			NodeType:        constants.JoinNode,
-			AllowUpStream:   []string{constants.SourceNode, constants.OrderByNode, constants.LimitNode, constants.OffsetNode, constants.FetchNode, constants.JoinNode, constants.UnionNode, constants.ExceptNode, constants.IntersectNode, constants.ConstNode, constants.FilterNode, constants.GroupByNode, constants.HavingNode, constants.WindowNode, constants.UDTFNode, constants.ArraysNode, constants.UDTTFNode},
+			AllowUpStream:   []string{constants.SourceNode, constants.OrderByNode, constants.LimitNode, constants.OffsetNode, constants.FetchNode, constants.JoinNode, constants.UnionNode, constants.ExceptNode, constants.IntersectNode, constants.ConstNode, constants.FilterNode, constants.GroupByNode, constants.HavingNode, constants.WindowNode, constants.UDTFNode, constants.UDTTFNode},
 			AllowDownStream: []string{constants.DestNode, constants.OrderByNode, constants.LimitNode, constants.OffsetNode, constants.FetchNode, constants.JoinNode, constants.UnionNode, constants.ExceptNode, constants.IntersectNode, constants.FilterNode, constants.GroupByNode, constants.HavingNode, constants.WindowNode}})
 		nodeRelations = append(nodeRelations, NodeRelation{
 			NodeType:        constants.UDTTFNode,
 			AllowUpStream:   []string{constants.EmptyNode, constants.SourceNode},
 			AllowDownStream: []string{constants.JoinNode, constants.FilterNode}})
-		nodeRelations = append(nodeRelations, NodeRelation{
-			NodeType:        constants.ArraysNode,
-			AllowUpStream:   []string{constants.EmptyNode, constants.SourceNode},
-			AllowDownStream: []string{constants.JoinNode}})
 		nodeRelations = append(nodeRelations, NodeRelation{
 			NodeType:        constants.SqlNode,
 			AllowUpStream:   []string{constants.EmptyNode},
@@ -310,7 +313,7 @@ func GetNodeRelation(nodeType string) (nodeRelation NodeRelation, jsonRelation s
 }
 
 func isSimpleTable(NodeType string) bool {
-	if NodeType == constants.SourceNode || NodeType == constants.ConstNode || NodeType == constants.UDTTFNode || NodeType == constants.UDTFNode || NodeType == constants.ArraysNode {
+	if NodeType == constants.SourceNode || NodeType == constants.DimensionNode || NodeType == constants.ConstNode || NodeType == constants.UDTTFNode || NodeType == constants.UDTFNode {
 		return true
 	}
 	return false
@@ -327,9 +330,9 @@ func subQueryTable(ssql SqlStack, as string) (sql SqlStack, err error) {
 	sql.Distinct = constants.DISTINCT_ALL // actual distinct in subquery
 	sql.TableAs = as
 	sql.Other = ""
-	sql.Column = []constants.ColumnAs{}
+	sql.Column = []model.ColumnAs{}
 	for _, c := range ssql.Column {
-		var column constants.ColumnAs
+		var column model.ColumnAs
 		if c.As != "" {
 			column.Field = c.As
 		} else {
@@ -380,12 +383,12 @@ func appendID(IDs []string, appendIDs []string) (newIDs []string) {
 	return
 }
 
-func printNode(dag []constants.DagNode, d constants.DagNode, ssql SqlStack) (sql SqlStack, err error) {
+func printNode(dag []*model.FlinkDagNode, d model.FlinkDagNode, ssql SqlStack) (sql SqlStack, err error) {
 	var (
 		notFirst          bool
-		upStreamNode      constants.DagNode
+		upStreamNode      model.FlinkDagNode
 		str               string
-		upStreamRightNode constants.DagNode
+		upStreamRightNode model.FlinkDagNode
 	)
 
 	if d.NodeType == constants.EmptyNode {
@@ -396,23 +399,11 @@ func printNode(dag []constants.DagNode, d constants.DagNode, ssql SqlStack) (sql
 	}
 
 	if d.NodeType == constants.DestNode {
-		var (
-			v constants.DestNodeProperty
-		)
+		v := d.Property.Dest
 
-		err = json.Unmarshal([]byte(d.Property), &v)
-		if err != nil {
-			return
-		}
-
-		if len(v.Column) == 0 {
-			err = fmt.Errorf("please set DestNode column")
-			return
-		}
-
-		str = "insert into " + v.Table + "("
+		str = "insert into " + v.TableID + "("
 		notFirst = false
-		for _, c := range v.Column {
+		for _, c := range v.Columns {
 			if notFirst == true {
 				str += ","
 			}
@@ -422,52 +413,45 @@ func printNode(dag []constants.DagNode, d constants.DagNode, ssql SqlStack) (sql
 		str += ") "
 
 		upStreamNode, _ = getDagNode(dag, d.UpStream)
-		ssql.TableID = appendID(ssql.TableID, []string{v.ID})
+		ssql.TableID = appendID(ssql.TableID, []string{v.TableID})
 		sql, err = printNode(dag, upStreamNode, ssql)
 		sql.Sql = str + sql.Sql
 		return
-	} else if d.NodeType == constants.UDFNode {
+	} else if d.NodeType == constants.ValuesNode {
 		var (
-			v constants.UDFNodeProperty
+			values string
 		)
 
-		err = json.Unmarshal([]byte(d.Property), &v)
-		if err != nil {
-			return
-		}
+		v := d.Property.Values
 
-		ssql.UDFID = appendID(ssql.UDFID, []string{v.ID})
-		upStreamNode, _ = getDagNode(dag, d.UpStream)
-		sql, err = printNode(dag, upStreamNode, ssql)
-		return
-	} else if d.NodeType == constants.ValuesNode {
-		var v constants.ValuesNodeProperty
-
-		err = json.Unmarshal([]byte(d.Property), &v)
-		if err != nil {
-			return
-		}
-		str += " values"
-		notFirst = false
-		for _, r := range v.Row {
-			if notFirst == true {
-				str += ","
+		values = " values"
+		firstrow := true
+		for _, row := range v.Rows {
+			if firstrow == false {
+				values += ", "
 			}
-			str += "(" + r + ")"
-			notFirst = true
+			firstrow = false
+
+			firstvalue := true
+			for _, value := range row.Values {
+				if firstvalue == false {
+					values += ", "
+				} else {
+					values += "("
+				}
+				values += value
+				firstvalue = false
+			}
+			values += ")"
 		}
+
+		str += values
 		ssql.Sql = str + ssql.Sql
 		upStreamNode, _ = getDagNode(dag, d.UpStream)
 		sql, err = printNode(dag, upStreamNode, ssql)
 		return
 	} else if d.NodeType == constants.ConstNode {
-		var v constants.ConstNodeProperty
-
-		err = json.Unmarshal([]byte(d.Property), &v)
-		if err != nil {
-			return
-		}
-
+		v := d.Property.Const
 		if ssql.Standard == true {
 			str += " select "
 			notFirst = false
@@ -475,7 +459,7 @@ func printNode(dag []constants.DagNode, d constants.DagNode, ssql SqlStack) (sql
 				if notFirst == true {
 					str += ","
 				}
-				str += d.NodeID + "." + c.As
+				str += v.Table + "." + c.As
 				notFirst = true
 			}
 			str += " from ( select "
@@ -487,12 +471,12 @@ func printNode(dag []constants.DagNode, d constants.DagNode, ssql SqlStack) (sql
 				str += c.Field + " as " + c.As
 				notFirst = true
 			}
-			str += ") as " + d.NodeID + " "
+			str += ") as " + v.Table + " "
 			ssql.Sql = str + ssql.Sql
 		} else {
-			ssql.TableAs = d.NodeID
+			ssql.TableAs = v.Table
 			for _, c := range v.Column {
-				ssql.Column = append(ssql.Column, constants.ColumnAs{Field: c.As})
+				ssql.Column = append(ssql.Column, model.ColumnAs{Field: c.As})
 			}
 			ssql.Table = " (select "
 			notFirst = false
@@ -510,10 +494,89 @@ func printNode(dag []constants.DagNode, d constants.DagNode, ssql SqlStack) (sql
 		sql, err = printNode(dag, upStreamNode, ssql)
 		return
 	} else if d.NodeType == constants.SourceNode {
-		var v constants.SourceNodeProperty
+		var (
+			toSubQuery bool
+		)
 
-		err = json.Unmarshal([]byte(d.Property), &v)
-		if err != nil {
+		v := d.Property.Source
+
+		if v.Distinct == constants.DISTINCT_DISTINCT || v.TableAS != "" {
+			toSubQuery = true
+		}
+
+		if ssql.Standard == true {
+			str += " select " + v.Distinct + " "
+			notFirst = false
+			for _, c := range v.Column {
+				if notFirst == true {
+					str += ","
+				}
+				if c.Func != "" {
+					str += c.Func + "(" + c.Field + ")"
+				} else {
+					str += c.Field
+				}
+				if c.WindowsName != "" {
+					str += " over " + c.WindowsName
+				}
+				if c.As != "" {
+					str += " as " + c.As
+					toSubQuery = true
+				}
+				notFirst = true
+			}
+			for _, c := range v.CustomColumn {
+				if notFirst == true {
+					str += ","
+				}
+				str += c.Field
+				if c.As != "" {
+					str += " as " + c.As
+					toSubQuery = true
+				}
+				notFirst = true
+			}
+			str += " from " + v.TableID + " "
+			ssql.Sql = str + ssql.Sql
+		} else {
+			var newColumn []model.ColumnAs
+
+			for _, c := range v.Column {
+				var oneNewColumn model.ColumnAs
+				if c.Func != "" {
+					oneNewColumn.Field += c.Func + "(" + c.Field + ")"
+				} else {
+					oneNewColumn.Field += c.Field
+				}
+				if c.WindowsName != "" {
+					oneNewColumn.Field += " over " + c.WindowsName
+				}
+				oneNewColumn.As = c.As
+				newColumn = append(newColumn, oneNewColumn)
+			}
+			ssql.Column = newColumn
+			for _, c := range v.CustomColumn {
+				ssql.Column = append(ssql.Column, *c)
+			}
+			ssql.Distinct = v.Distinct
+			ssql.Table = v.TableID
+		}
+		ssql.TableID = appendID(ssql.TableID, []string{v.TableID})
+
+		if toSubQuery == true {
+			ssql, err = subQueryTable(ssql, v.TableAS)
+			if err != nil {
+				return
+			}
+		}
+
+		upStreamNode, _ = getDagNode(dag, d.UpStream)
+		sql, err = printNode(dag, upStreamNode, ssql)
+		return
+	} else if d.NodeType == constants.DimensionNode {
+		v := d.Property.Dimension
+		if v.Distinct == constants.DISTINCT_DISTINCT {
+			err = fmt.Errorf("Dimension Not Allow Distinct")
 			return
 		}
 
@@ -524,31 +587,61 @@ func printNode(dag []constants.DagNode, d constants.DagNode, ssql SqlStack) (sql
 				if notFirst == true {
 					str += ","
 				}
+				if c.Func != "" {
+					str += c.Func + "(" + c.Field + ")"
+				} else {
+					str += c.Field
+				}
+				if c.WindowsName != "" {
+					str += " over " + c.WindowsName
+				}
+				if c.As != "" {
+					str += " as " + c.As
+				}
+				notFirst = true
+			}
+			for _, c := range v.CustomColumn {
+				if notFirst == true {
+					str += ","
+				}
 				str += c.Field
 				if c.As != "" {
 					str += " as " + c.As
 				}
 				notFirst = true
 			}
-			str += " from " + v.Table + " "
+			str += " from " + v.TableID + " FOR SYSTEM_TIME AS OF " + v.TimeColumn[0].Field + " AS  " + v.TableAS + " "
 			ssql.Sql = str + ssql.Sql
 		} else {
-			ssql.Column = v.Column
+			var newColumn []model.ColumnAs
+
+			for _, c := range v.Column {
+				var oneNewColumn model.ColumnAs
+				if c.Func != "" {
+					oneNewColumn.Field += c.Func + "(" + c.Field + ")"
+				} else {
+					oneNewColumn.Field += c.Field
+				}
+				if c.WindowsName != "" {
+					oneNewColumn.Field += " over " + c.WindowsName
+				}
+				oneNewColumn.As = c.As
+				newColumn = append(newColumn, oneNewColumn)
+			}
+			ssql.Column = newColumn
+			for _, c := range v.CustomColumn {
+				ssql.Column = append(ssql.Column, *c)
+			}
 			ssql.Distinct = v.Distinct
-			ssql.Table = v.Table
+			ssql.Table = v.TableID + " FOR SYSTEM_TIME AS OF " + v.TimeColumn[0].Field + " AS  " + v.TableAS + " "
 		}
-		ssql.TableID = appendID(ssql.TableID, []string{v.ID})
+		ssql.TableID = appendID(ssql.TableID, []string{v.TableID})
 
 		upStreamNode, _ = getDagNode(dag, d.UpStream)
 		sql, err = printNode(dag, upStreamNode, ssql)
 		return
 	} else if d.NodeType == constants.OrderByNode {
-		var v constants.OrderByNodeProperty
-
-		err = json.Unmarshal([]byte(d.Property), &v)
-		if err != nil {
-			return
-		}
+		v := d.Property.OrderBy
 
 		notFirst = false
 		str = " order by "
@@ -575,13 +668,7 @@ func printNode(dag []constants.DagNode, d constants.DagNode, ssql SqlStack) (sql
 		sql, err = printNode(dag, upStreamNode, ssql)
 		return
 	} else if d.NodeType == constants.LimitNode {
-		var v constants.LimitNodeProperty
-
-		err = json.Unmarshal([]byte(d.Property), &v)
-		if err != nil {
-			return
-		}
-
+		v := d.Property.Limit
 		str = " limit " + fmt.Sprintf("%d", v.Limit) + " "
 
 		if ssql.Standard == true {
@@ -594,13 +681,7 @@ func printNode(dag []constants.DagNode, d constants.DagNode, ssql SqlStack) (sql
 		sql, err = printNode(dag, upStreamNode, ssql)
 		return
 	} else if d.NodeType == constants.OffsetNode {
-		var v constants.OffsetNodeProperty
-
-		err = json.Unmarshal([]byte(d.Property), &v)
-		if err != nil {
-			return
-		}
-
+		v := d.Property.Offset
 		str = " offset " + fmt.Sprintf("%d", v.Offset) + " "
 
 		if ssql.Standard == true {
@@ -613,13 +694,7 @@ func printNode(dag []constants.DagNode, d constants.DagNode, ssql SqlStack) (sql
 		sql, err = printNode(dag, upStreamNode, ssql)
 		return
 	} else if d.NodeType == constants.FetchNode {
-		var v constants.FetchNodeProperty
-
-		err = json.Unmarshal([]byte(d.Property), &v)
-		if err != nil {
-			return
-		}
-
+		v := d.Property.Fetch
 		str = " fetch first " + fmt.Sprintf("%d", v.Fetch) + " rows only "
 
 		if ssql.Standard == true {
@@ -632,16 +707,11 @@ func printNode(dag []constants.DagNode, d constants.DagNode, ssql SqlStack) (sql
 		sql, err = printNode(dag, upStreamNode, ssql)
 		return
 	} else if d.NodeType == constants.FilterNode {
-		var v constants.FilterNodeProperty
-
-		err = json.Unmarshal([]byte(d.Property), &v)
-		if err != nil {
-			return
-		}
+		v := d.Property.Filter
 
 		if v.In == "" && v.Exists == "" {
 			if d.UpStreamRight == "" {
-				str = " where " + v.Filter + " "
+				str = " where " + v.Where + " "
 				if ssql.Standard == true {
 					ssql.Sql = str + ssql.Sql
 				} else {
@@ -654,6 +724,8 @@ func printNode(dag []constants.DagNode, d constants.DagNode, ssql SqlStack) (sql
 					leftsql  SqlStack
 					rightsql SqlStack
 				)
+				err = fmt.Errorf("not allow two upStream Node")
+				return
 
 				upStreamNode, _ = getDagNode(dag, d.UpStream)
 				leftsql, err = printNode(dag, upStreamNode, SqlStack{Standard: false})
@@ -695,7 +767,7 @@ func printNode(dag []constants.DagNode, d constants.DagNode, ssql SqlStack) (sql
 						if notFirst == true {
 							str += ","
 						}
-						str += c.Field //don't use table.column because the Field maybe not a Column. if we have the same column we can write table.column into Field in SourceNode
+						str += c.Field
 						if c.As != "" {
 							str += " as " + c.As
 						}
@@ -705,13 +777,13 @@ func printNode(dag []constants.DagNode, d constants.DagNode, ssql SqlStack) (sql
 						if notFirst == true {
 							str += ","
 						}
-						str += c.Field //don't use table.column because the Field maybe not a Column. if we have the same column we can write table.column into Field in SourceNode
+						str += c.Field
 						if c.As != "" {
 							str += " as " + c.As
 						}
 					}
 					str += " from " + leftsql.Table + ", " + rightsql.Table + " "
-					str += " where " + v.Filter + " "
+					str += " where " + v.Where + " "
 
 					ssql.Sql = str + ssql.Sql
 					sql = ssql
@@ -719,7 +791,7 @@ func printNode(dag []constants.DagNode, d constants.DagNode, ssql SqlStack) (sql
 				} else {
 					ssql.Distinct = leftsql.Distinct
 					ssql.Table = leftsql.Table + ", " + rightsql.Table + " "
-					str += " where " + v.Filter + " "
+					str += " where " + v.Where + " "
 					ssql.Other = str + ssql.Other
 
 					for _, c := range leftsql.Column {
@@ -735,31 +807,39 @@ func printNode(dag []constants.DagNode, d constants.DagNode, ssql SqlStack) (sql
 		} else {
 			var rightsql SqlStack
 
-			if d.UpStreamRight == "" {
-				err = fmt.Errorf("in/exist can't find the subquery(UpStreamRight)")
-				return
-			}
+			if d.UpStreamRight != "" {
+				upStreamRightNode, _ = getDagNode(dag, d.UpStreamRight)
+				rightsql, err = printNode(dag, upStreamRightNode, SqlStack{Standard: true})
+				if err != nil {
+					return
+				}
+				ssql.TableID = appendID(ssql.TableID, rightsql.TableID)
+				ssql.UDFID = appendID(ssql.UDFID, rightsql.UDFID)
+				ssql.NodeCount += rightsql.NodeCount
+				if v.In != "" {
+					str = " where " + v.In + " in "
+				} else {
+					str = " where " + v.Exists + " exists "
+				}
 
-			upStreamRightNode, _ = getDagNode(dag, d.UpStreamRight)
-			rightsql, err = printNode(dag, upStreamRightNode, SqlStack{Standard: true})
-			if err != nil {
-				return
-			}
-			ssql.TableID = appendID(ssql.TableID, rightsql.TableID)
-			ssql.UDFID = appendID(ssql.UDFID, rightsql.UDFID)
-			ssql.NodeCount += rightsql.NodeCount
-
-			if v.In != "" {
-				str = " where " + v.In + " in "
+				if ssql.Standard == true {
+					ssql.Sql = str + "(" + rightsql.Sql + ")" + ssql.Sql
+				} else {
+					ssql.Other = str + "(" + rightsql.Other + ")" + ssql.Sql
+				}
 			} else {
-				str = " where " + v.Exists + " exists "
+				if v.In != "" {
+					str = " where " + v.In
+				} else {
+					str = " where " + v.Exists
+				}
+				if ssql.Standard == true {
+					ssql.Sql = str + ssql.Sql
+				} else {
+					ssql.Other = str + ssql.Sql
+				}
 			}
 
-			if ssql.Standard == true {
-				ssql.Sql = str + "(" + rightsql.Sql + ")" + ssql.Sql
-			} else {
-				ssql.Other = str + "(" + rightsql.Other + ")" + ssql.Sql
-			}
 			upStreamNode, _ = getDagNode(dag, d.UpStream)
 			sql, err = printNode(dag, upStreamNode, ssql)
 			return
@@ -768,12 +848,13 @@ func printNode(dag []constants.DagNode, d constants.DagNode, ssql SqlStack) (sql
 		var (
 			leftsql  SqlStack
 			rightsql SqlStack
-			v        constants.UnionNodeProperty
+			all      string
 		)
 
-		err = json.Unmarshal([]byte(d.Property), &v)
-		if err != nil {
-			return
+		v := d.Property.Union
+
+		if v.All == true {
+			all = " all "
 		}
 
 		upStreamNode, _ = getDagNode(dag, d.UpStream)
@@ -798,7 +879,7 @@ func printNode(dag []constants.DagNode, d constants.DagNode, ssql SqlStack) (sql
 				if c.As != "" {
 					str += c.As
 				} else {
-					str += c.Field //don't use table.column because the Field maybe not a Column. if we have the same column we can write table.column into Field in SourceNode
+					str += c.Field
 				}
 				notFirst = true
 			}
@@ -808,25 +889,25 @@ func printNode(dag []constants.DagNode, d constants.DagNode, ssql SqlStack) (sql
 				if notFirst == true {
 					str += ","
 				}
-				str += c.Field //don't use table.column because the Field maybe not a Column. if we have the same column we can write table.column into Field in SourceNode
+				str += c.Field
 				if c.As != "" {
 					str += " as " + c.As
 				}
 				notFirst = true
 			}
 			str += " from " + leftsql.Table + " " + leftsql.Other + ") "
-			str += " union " + v.All + " (" + rightsql.Sql + ")) "
+			str += " union " + all + " (" + rightsql.Sql + ")) "
 			ssql.Sql = str + ssql.Sql
 			sql = ssql
 			return
 		} else {
 			ssql.Distinct = constants.DISTINCT_ALL
-			ssql.Column = []constants.ColumnAs{}
+			ssql.Column = []model.ColumnAs{}
 			for _, c := range leftsql.Column {
 				if c.As != "" {
-					ssql.Column = append(ssql.Column, constants.ColumnAs{Field: c.As})
+					ssql.Column = append(ssql.Column, model.ColumnAs{Field: c.As})
 				} else {
-					ssql.Column = append(ssql.Column, constants.ColumnAs{Field: c.Field})
+					ssql.Column = append(ssql.Column, model.ColumnAs{Field: c.Field})
 				}
 			}
 			ssql.Table = " ((select " + leftsql.Distinct + " "
@@ -835,14 +916,14 @@ func printNode(dag []constants.DagNode, d constants.DagNode, ssql SqlStack) (sql
 				if notFirst == true {
 					ssql.Table += ","
 				}
-				str += c.Field //don't use table.column because the Field maybe not a Column. if we have the same column we can write table.column into Field in SourceNode
+				str += c.Field
 				if c.As != "" {
 					ssql.Table += " as " + c.As
 				}
 				notFirst = true
 			}
 			ssql.Table += " from " + leftsql.Table + " " + leftsql.Other + ") "
-			ssql.Table += " union " + v.All + " (" + rightsql.Sql + ")) "
+			ssql.Table += " union " + all + " (" + rightsql.Sql + ")) "
 			sql = ssql
 			return
 		}
@@ -874,7 +955,7 @@ func printNode(dag []constants.DagNode, d constants.DagNode, ssql SqlStack) (sql
 				if c.As != "" {
 					str += c.As
 				} else {
-					str += c.Field //don't use table.column because the Field maybe not a Column. if we have the same column we can write table.column into Field in SourceNode
+					str += c.Field
 				}
 				notFirst = true
 			}
@@ -884,7 +965,7 @@ func printNode(dag []constants.DagNode, d constants.DagNode, ssql SqlStack) (sql
 				if notFirst == true {
 					str += ","
 				}
-				str += c.Field //don't use table.column because the Field maybe not a Column. if we have the same column we can write table.column into Field in SourceNode
+				str += c.Field
 				if c.As != "" {
 					str += " as " + c.As
 				}
@@ -897,12 +978,12 @@ func printNode(dag []constants.DagNode, d constants.DagNode, ssql SqlStack) (sql
 			return
 		} else {
 			ssql.Distinct = constants.DISTINCT_ALL
-			ssql.Column = []constants.ColumnAs{}
+			ssql.Column = []model.ColumnAs{}
 			for _, c := range leftsql.Column {
 				if c.As != "" {
-					ssql.Column = append(ssql.Column, constants.ColumnAs{Field: c.As})
+					ssql.Column = append(ssql.Column, model.ColumnAs{Field: c.As})
 				} else {
-					ssql.Column = append(ssql.Column, constants.ColumnAs{Field: c.Field})
+					ssql.Column = append(ssql.Column, model.ColumnAs{Field: c.Field})
 				}
 			}
 			ssql.Table = " ((select " + leftsql.Distinct + " "
@@ -911,7 +992,7 @@ func printNode(dag []constants.DagNode, d constants.DagNode, ssql SqlStack) (sql
 				if notFirst == true {
 					ssql.Table += ","
 				}
-				str += c.Field //don't use table.column because the Field maybe not a Column. if we have the same column we can write table.column into Field in SourceNode
+				str += c.Field
 				if c.As != "" {
 					ssql.Table += " as " + c.As
 				}
@@ -950,7 +1031,7 @@ func printNode(dag []constants.DagNode, d constants.DagNode, ssql SqlStack) (sql
 				if c.As != "" {
 					str += c.As
 				} else {
-					str += c.Field //don't use table.column because the Field maybe not a Column. if we have the same column we can write table.column into Field in SourceNode
+					str += c.Field
 				}
 				notFirst = true
 			}
@@ -960,7 +1041,7 @@ func printNode(dag []constants.DagNode, d constants.DagNode, ssql SqlStack) (sql
 				if notFirst == true {
 					str += ","
 				}
-				str += c.Field //don't use table.column because the Field maybe not a Column. if we have the same column we can write table.column into Field in SourceNode
+				str += c.Field
 				if c.As != "" {
 					str += " as " + c.As
 				}
@@ -973,12 +1054,12 @@ func printNode(dag []constants.DagNode, d constants.DagNode, ssql SqlStack) (sql
 			return
 		} else {
 			ssql.Distinct = constants.DISTINCT_ALL
-			ssql.Column = []constants.ColumnAs{}
+			ssql.Column = []model.ColumnAs{}
 			for _, c := range leftsql.Column {
 				if c.As != "" {
-					ssql.Column = append(ssql.Column, constants.ColumnAs{Field: c.As})
+					ssql.Column = append(ssql.Column, model.ColumnAs{Field: c.As})
 				} else {
-					ssql.Column = append(ssql.Column, constants.ColumnAs{Field: c.Field})
+					ssql.Column = append(ssql.Column, model.ColumnAs{Field: c.Field})
 				}
 			}
 			ssql.Table = " ((select " + leftsql.Distinct + " "
@@ -987,7 +1068,7 @@ func printNode(dag []constants.DagNode, d constants.DagNode, ssql SqlStack) (sql
 				if notFirst == true {
 					ssql.Table += ","
 				}
-				str += c.Field //don't use table.column because the Field maybe not a Column. if we have the same column we can write table.column into Field in SourceNode
+				str += c.Field
 				if c.As != "" {
 					ssql.Table += " as " + c.As
 				}
@@ -999,12 +1080,7 @@ func printNode(dag []constants.DagNode, d constants.DagNode, ssql SqlStack) (sql
 			return
 		}
 	} else if d.NodeType == constants.GroupByNode {
-		var v constants.GroupByNodeProperty
-
-		err = json.Unmarshal([]byte(d.Property), &v)
-		if err != nil {
-			return
-		}
+		v := d.Property.GroupBy
 
 		str = " group by "
 		notFirst = false
@@ -1027,15 +1103,8 @@ func printNode(dag []constants.DagNode, d constants.DagNode, ssql SqlStack) (sql
 		sql, err = printNode(dag, upStreamNode, ssql)
 		return
 	} else if d.NodeType == constants.HavingNode {
-		var v constants.HavingNodeProperty
-
-		err = json.Unmarshal([]byte(d.Property), &v)
-		if err != nil {
-			return
-		}
-
+		v := d.Property.Having
 		str = " having " + v.Having + " "
-
 		if ssql.Standard == true {
 			ssql.Sql = str + ssql.Sql
 		} else {
@@ -1046,13 +1115,7 @@ func printNode(dag []constants.DagNode, d constants.DagNode, ssql SqlStack) (sql
 		sql, err = printNode(dag, upStreamNode, ssql)
 		return
 	} else if d.NodeType == constants.WindowNode {
-		var v constants.WindowNodeProperty
-
-		err = json.Unmarshal([]byte(d.Property), &v)
-		if err != nil {
-			return
-		}
-
+		v := d.Property.Window
 		str = " window "
 		notFirst = false
 		for _, c := range v.Window {
@@ -1073,46 +1136,17 @@ func printNode(dag []constants.DagNode, d constants.DagNode, ssql SqlStack) (sql
 		sql, err = printNode(dag, upStreamNode, ssql)
 		return
 	} else if d.NodeType == constants.UDTFNode {
-		var v constants.UDTFNodeProperty
-
-		err = json.Unmarshal([]byte(d.Property), &v)
-		if err != nil {
-			return
-		}
+		v := d.Property.UDTF
 		if ssql.Standard == true {
 			err = fmt.Errorf(constants.UDTFNode + " can't use in standard sql")
 			return
 		}
 		ssql.Distinct = constants.DISTINCT_ALL
-		ssql.Column = v.SelectColumn
-		ssql.Table = " LATERAL TABLE(" + v.FuncName + "(" + v.Args + ")) AS " + v.As + "("
-		ssql.UDFID = appendID(ssql.UDFID, []string{v.ID})
-
-		notFirst = false
-		for _, c := range v.Column {
-			if notFirst == true {
-				ssql.Table += ","
-			}
-			ssql.Table += c.Field
-			notFirst = true
+		for _, c := range v.SelectColumn {
+			ssql.Column = append(ssql.Column, *c)
 		}
-		ssql.Table += ")"
-		sql = ssql
-		return
-	} else if d.NodeType == constants.ArraysNode {
-		var v constants.ArraysNodeProperty
-
-		err = json.Unmarshal([]byte(d.Property), &v)
-		if err != nil {
-			return
-		}
-		if ssql.Standard == true {
-			err = fmt.Errorf(constants.ArraysNode + " can't use in standard sql")
-			return
-		}
-		ssql.Distinct = constants.DISTINCT_ALL
-		ssql.Column = v.SelectColumn
-		ssql.Table = "UNNEST(" + v.Args + ")) AS " + v.As + "("
+		ssql.Table = " LATERAL TABLE(" + v.UDFID + "(" + v.Args + ")) AS " + v.TableAS + "("
+		ssql.UDFID = appendID(ssql.UDFID, []string{v.UDFID})
 
 		notFirst = false
 		for _, c := range v.Column {
@@ -1126,19 +1160,16 @@ func printNode(dag []constants.DagNode, d constants.DagNode, ssql SqlStack) (sql
 		sql = ssql
 		return
 	} else if d.NodeType == constants.UDTTFNode {
-		var v constants.UDTTFNodeProperty
-
-		err = json.Unmarshal([]byte(d.Property), &v)
-		if err != nil {
-			return
-		}
+		v := d.Property.UDTTF
 		if ssql.Standard == true {
-			err = fmt.Errorf(constants.UDTFNode + " can't use in standard sql")
+			err = fmt.Errorf(constants.UDTTFNode + " can't use in standard sql")
 			return
 		}
-		ssql.UDFID = appendID(ssql.UDFID, []string{v.ID})
+		ssql.UDFID = appendID(ssql.UDFID, []string{v.UDFID})
 		ssql.Distinct = constants.DISTINCT_ALL
-		ssql.Column = v.Column
+		for _, c := range v.Column {
+			ssql.Column = append(ssql.Column, *c)
+		}
 		ssql.Table = " LATERAL TABLE(" + v.FuncName + "(" + v.Args + "))"
 		sql = ssql
 		return
@@ -1146,23 +1177,41 @@ func printNode(dag []constants.DagNode, d constants.DagNode, ssql SqlStack) (sql
 		var (
 			leftsql  SqlStack
 			rightsql SqlStack
-			v        constants.JoinNodeProperty
 		)
 
-		err = json.Unmarshal([]byte(d.Property), &v)
-		if err != nil {
-			return
-		}
-
-		if strings.ToUpper(v.Join) != constants.JOIN && strings.ToUpper(v.Join) != constants.LEFT_JOIN && strings.ToUpper(v.Join) != constants.RIGHT_JOIN && strings.ToUpper(v.Join) != constants.FULL_OUT_JOIN && strings.ToUpper(v.Join) != constants.CROSS_JOIN {
+		v := d.Property.Join
+		if strings.ToUpper(v.Join) != constants.JOIN && strings.ToUpper(v.Join) != constants.LEFT_JOIN && strings.ToUpper(v.Join) != constants.RIGHT_JOIN && strings.ToUpper(v.Join) != constants.FULL_OUT_JOIN && strings.ToUpper(v.Join) != constants.CROSS_JOIN && strings.ToUpper(v.Join) != constants.INTERVAL_JOIN {
 			err = fmt.Errorf("don't support this join " + v.Join)
 			return
+		}
+		if strings.ToUpper(v.Join) == constants.INTERVAL_JOIN {
+			v.Join = "Where"
 		}
 
 		upStreamNode, _ = getDagNode(dag, d.UpStream)
 		leftsql, err = printNode(dag, upStreamNode, SqlStack{Standard: false})
-		upStreamRightNode, _ = getDagNode(dag, d.UpStreamRight)
-		rightsql, err = printNode(dag, upStreamRightNode, SqlStack{Standard: false})
+		if strings.ToUpper(v.Join) == constants.CROSS_JOIN {
+			var (
+				crossProperty        model.SourceNodeProperty
+				generateColumnString string
+			)
+			upStreamRightNode.NodeType = constants.SourceNode
+			firstcolumn := true
+			for _, generateColumn := range v.GenerateColumn {
+				if firstcolumn == false {
+					generateColumnString += ", "
+				}
+				generateColumnString += generateColumn.Field
+				firstcolumn = false
+			}
+			crossProperty.TableID = "CROSS JOIN UNNEST(" + v.Args + ") AS " + v.TableAS + " (" + generateColumnString + ")"
+			crossProperty.Distinct = constants.DISTINCT_ALL
+			upStreamRightNode.Property.Source = &crossProperty
+			rightsql, err = printNode(dag, upStreamRightNode, SqlStack{Standard: false})
+		} else {
+			upStreamRightNode, _ = getDagNode(dag, d.UpStreamRight)
+			rightsql, err = printNode(dag, upStreamRightNode, SqlStack{Standard: false})
+		}
 
 		ssql.TableID = appendID(ssql.TableID, leftsql.TableID)
 		ssql.TableID = appendID(ssql.TableID, rightsql.TableID)
@@ -1172,23 +1221,17 @@ func printNode(dag []constants.DagNode, d constants.DagNode, ssql SqlStack) (sql
 		ssql.NodeCount += rightsql.NodeCount
 
 		if isSimpleTable(upStreamNode.NodeType) == false {
-			leftsql, err = subQueryTable(leftsql, d.NodeID)
+			leftsql, err = subQueryTable(leftsql, v.TableAS)
 			if err != nil {
 				return
 			}
 		}
 
 		if isSimpleTable(upStreamRightNode.NodeType) == false {
-			rightsql, err = subQueryTable(rightsql, d.NodeID+"right")
+			rightsql, err = subQueryTable(rightsql, v.TableAS)
 			if err != nil {
 				return
 			}
-		}
-
-		if (strings.ToUpper(v.Join) == constants.CROSS_JOIN && upStreamNode.NodeType != constants.ArraysNode && upStreamRightNode.NodeType != constants.ArraysNode) ||
-			((upStreamNode.NodeType == constants.ArraysNode || upStreamRightNode.NodeType == constants.ArraysNode) && strings.ToUpper(v.Join) != constants.CROSS_JOIN) {
-			err = fmt.Errorf("cross join must use with ArraysNode")
-			return
 		}
 
 		if leftsql.Distinct != rightsql.Distinct {
@@ -1253,7 +1296,9 @@ func printNode(dag []constants.DagNode, d constants.DagNode, ssql SqlStack) (sql
 		} else {
 			sql = ssql
 			sql.Distinct = constants.DISTINCT_ALL
-			sql.Column = v.Column
+			for _, c := range v.Column {
+				ssql.Column = append(ssql.Column, *c)
+			}
 
 			sql.Table = " ( select " + leftsql.Distinct + " "
 			notFirst = false
@@ -1292,36 +1337,21 @@ func printNode(dag []constants.DagNode, d constants.DagNode, ssql SqlStack) (sql
 			return
 		}
 	} else if d.NodeType == constants.SqlNode {
-		var v constants.SqlNodeProperty
-
-		err = json.Unmarshal([]byte(d.Property), &v)
-		if err != nil {
-			return
-		}
+		v := d.Property.Sql
 
 		sql = ssql
 		sql.Sql = v.Sql
 
 		return
 	} else if d.NodeType == constants.ScalaNode {
-		var v constants.ScalaNodeProperty
-
-		err = json.Unmarshal([]byte(d.Property), &v)
-		if err != nil {
-			return
-		}
+		v := d.Property.Scala
 
 		sql = ssql
 		sql.Sql = v.Code
 
 		return
 	} else if d.NodeType == constants.PythonNode {
-		var v constants.PythonNodeProperty
-
-		err = json.Unmarshal([]byte(d.Property), &v)
-		if err != nil {
-			return
-		}
+		v := d.Property.Python
 
 		sql = ssql
 		sql.Sql = v.Code
@@ -1330,13 +1360,9 @@ func printNode(dag []constants.DagNode, d constants.DagNode, ssql SqlStack) (sql
 	} else if d.NodeType == constants.JarNode {
 		var (
 			checkv = regexp.MustCompile(`^[a-zA-Z0-9_/. ]*$`).MatchString
-			v      constants.JarNodeProperty
 		)
 
-		err = json.Unmarshal([]byte(d.Property), &v)
-		if err != nil {
-			return
-		}
+		v := d.Property.Jar
 
 		if checkv(v.JarArgs) == false {
 			err = fmt.Errorf("only ^[a-zA-Z0-9_/. ]*$ is allow in jarargs")
@@ -1347,7 +1373,8 @@ func printNode(dag []constants.DagNode, d constants.DagNode, ssql SqlStack) (sql
 			return
 		}
 		sql = ssql
-		sql.Sql = string(d.Property)
+		jarByte, _ := json.Marshal(d.Property.Jar)
+		sql.Sql = string(jarByte)
 		return
 
 	} else {
@@ -1358,7 +1385,15 @@ func printNode(dag []constants.DagNode, d constants.DagNode, ssql SqlStack) (sql
 	return
 }
 
-func printSqlAndElement(ctx context.Context, dag []constants.DagNode, job constants.FlinkNode, sourceClient SourceClient, udfClient UdfClient, fileClient FileClient, flinkHome string, hadoopConf string, flinkExecuteJars string, spaceID string, engineID string, jobID string, command string) (jobElement constants.JobElementFlink, err error) {
+func validTableName(tableName string, mappingName string) string {
+	if mappingName == "" {
+		return tableName
+	} else {
+		return mappingName
+	}
+}
+
+func printSqlAndElement(ctx context.Context, dag []*model.FlinkDagNode, job *request.JobParser, engineClient EngineClient, sourceClient SourceClient, udfClient UdfClient, fileClient FileClient, flinkHome string, hadoopConf string, flinkExecuteJars string) (jobElement response.JobParser, err error) {
 	const (
 		sqlMode = iota + 1
 		jarMode
@@ -1368,12 +1403,9 @@ func printSqlAndElement(ctx context.Context, dag []constants.DagNode, job consta
 	)
 
 	var (
-		d              constants.DagNode
-		sql            SqlStack
-		mode           int32
-		engineRequest  constants.EngineRequestOptions
-		engineResponse constants.EngineResponseOptions
-		jobenv         model.StreamFlowEnv
+		d    model.FlinkDagNode
+		sql  SqlStack
+		mode int32
 	)
 
 	if (dag[0].NodeType == constants.SqlNode ||
@@ -1413,25 +1445,14 @@ func printSqlAndElement(ctx context.Context, dag []constants.DagNode, job consta
 		return
 	}
 
-	err = json.Unmarshal([]byte(job.Env), &jobenv)
-	if err != nil {
-		return
-	}
-
-	engineRequest.JobID = jobID
-	engineRequest.EngineID = engineID
-	engineRequest.WorkspaceID = spaceID
-	engineRequest.Parallelism = jobenv.Parallelism
-	engineRequest.JobCU = jobenv.JobCu
-	engineRequest.TaskCU = jobenv.TaskCu
-	engineRequest.TaskNum = jobenv.TaskNum
+	jobenv := job.GetJob().GetEnv()
 	if mode == jarMode {
-		if command == constants.PreviewCommand || command == constants.SyntaxCheckCommand {
+		if job.Command == constants.JobCommandPreview || job.Command == constants.JobCommandSyntax {
 			err = fmt.Errorf("jar mode only support run/explain command")
 			return
 		}
 		var (
-			jar            constants.JarNodeProperty
+			jar            model.JarNodeProperty
 			entry          string
 			jarParallelism string
 			localJarPath   string
@@ -1448,11 +1469,11 @@ func printSqlAndElement(ctx context.Context, dag []constants.DagNode, job consta
 			return
 		}
 
-		jobElement.ZeppelinMainRun = "%sh\n\n" + "useradd -m " + jobID + "\nsu - " + jobID + "\n"
-		if jarName, url, err = fileClient.GetFileById(ctx, jar.JarId); err != nil {
+		jobElement.ZeppelinMainRun = "%sh\n\n" + "useradd -m " + job.Job.JobID + "\nsu - " + job.Job.JobID + "\n"
+		if jarName, url, err = fileClient.GetFileById(ctx, jar.JarID, job.Job.SpaceID); err != nil {
 			return
 		}
-		localJarDir = jobID
+		localJarDir = job.Job.JobID
 		localJarPath = localJarDir + "/" + jarName
 		jobElement.ZeppelinMainRun += "mkdir -p " + localJarDir + "\n"
 
@@ -1464,23 +1485,19 @@ func printSqlAndElement(ctx context.Context, dag []constants.DagNode, job consta
 			entry = ""
 		}
 
-		if jobenv.Parallelism > 0 {
-			jarParallelism = " -p " + fmt.Sprintf("%d", jobenv.Parallelism) + " "
+		if jobenv.GetFlink().GetParallelism() > 0 {
+			jarParallelism = " -p " + fmt.Sprintf("%d", jobenv.GetFlink().GetParallelism()) + " "
 		} else {
 			jarParallelism = " "
 		}
 		jobElement.ZeppelinMainRun += flinkHome + "/bin/flink run -sae -m " + FlinkHostQuote + ":" + FlinkPortQuote + jarParallelism + entry + localJarPath + " " + jar.JarArgs
-		engineRequest.AccessKey = jar.AccessKey
-		engineRequest.SecretKey = jar.SecretKey
-		engineRequest.EndPoint = jar.EndPoint
-		engineRequest.HbaseHosts = jar.HbaseHosts
 	} else {
 		var (
 			title       string
 			sourcetypes []string
 			executeJars string
-			udfList     udfpb.ListsRequest
-			udfListRep  *udfpb.ListsReply
+			udfList     request.ListUDF
+			udfListResp *response.ListUDF
 		)
 		// conf
 		jobElement.ZeppelinConf = "%flink.conf\n\n"
@@ -1498,13 +1515,14 @@ func printSqlAndElement(ctx context.Context, dag []constants.DagNode, job consta
 		} else if mode == pythonMode {
 			title = "%flink.ipyflink"
 		} else {
-			if job.StreamSql == true {
+			//if jobenv.StreamSql == true {
+			if true == true {
 				title = "%flink.ssql"
 			} else {
 				title = "%flink.bsql"
 			}
-			if jobenv.Parallelism > 0 {
-				title += "(parallelism=" + fmt.Sprintf("%d", jobenv.Parallelism) + ")"
+			if jobenv.GetFlink().GetParallelism() > 0 {
+				title += "(parallelism=" + fmt.Sprintf("%d", jobenv.GetFlink().GetParallelism()) + ")"
 			}
 		}
 		title += "\n\n"
@@ -1512,12 +1530,22 @@ func printSqlAndElement(ctx context.Context, dag []constants.DagNode, job consta
 		//depend
 		jobElement.ZeppelinDepends = title
 
+		for _, udfid := range sql.UDFID {
+			_, udfName, _, errTmp := udfClient.DescribeUdfManager(ctx, udfid)
+			if errTmp != nil {
+				err = errTmp
+				return
+			}
+			sql.Sql = strings.Replace(sql.Sql, udfid, udfName, -1)
+		}
+
 		for _, table := range sql.TableID {
 			sourceID, tableName, tableUrl, errTmp := sourceClient.DescribeSourceTable(ctx, table)
 			if errTmp != nil {
 				err = errTmp
 				return
 			}
+			sql.Sql = strings.Replace(sql.Sql, table, tableName, -1)
 			sourceType, ManagerUrl, errTmp := sourceClient.DescribeSourceManager(ctx, sourceID)
 			if errTmp != nil {
 				err = errTmp
@@ -1525,31 +1553,18 @@ func printSqlAndElement(ctx context.Context, dag []constants.DagNode, job consta
 			}
 
 			if sourceType == constants.SourceTypeS3 {
-				var m constants.SourceS3Params
-
-				if err = json.Unmarshal([]byte(ManagerUrl), &m); err != nil {
-					return
-				}
-				if jobElement.S3info.AccessKey == "" {
-					jobElement.S3info.AccessKey = m.AccessKey
-					jobElement.S3info.SecretKey = m.SecretKey
-					jobElement.S3info.EndPoint = m.EndPoint
-				} else if jobElement.S3info.AccessKey != m.AccessKey || jobElement.S3info.SecretKey != m.SecretKey || jobElement.S3info.EndPoint != m.EndPoint {
+				if jobElement.S3.AccessKey == "" {
+					jobElement.S3.AccessKey = ManagerUrl.S3.AccessKey
+					jobElement.S3.SecretKey = ManagerUrl.S3.SecretKey
+					jobElement.S3.Endpoint = ManagerUrl.S3.EndPoint
+				} else if jobElement.S3.AccessKey != ManagerUrl.S3.AccessKey || jobElement.S3.SecretKey != ManagerUrl.S3.SecretKey || jobElement.S3.Endpoint != ManagerUrl.S3.EndPoint {
 					err = fmt.Errorf("only allow one s3 sourcemanger in a job, all accesskey secretkey endpoint is the same")
 					return
 				}
 			}
 
 			if sourceType == constants.SourceTypeHbase {
-				var v constants.SourceHbaseParams
-
-				if err = json.Unmarshal([]byte(ManagerUrl), &v); err != nil {
-					return
-				}
-				if jobElement.HbaseHosts != "" {
-					jobElement.HbaseHosts += ";"
-				}
-				jobElement.HbaseHosts += v.Hosts
+				jobElement.Hbase.Hosts = append(jobElement.Hbase.Hosts, ManagerUrl.Hbase.Hosts.Hosts...)
 			}
 
 			find := false
@@ -1567,144 +1582,112 @@ func printSqlAndElement(ctx context.Context, dag []constants.DagNode, job consta
 			jobElement.ZeppelinDepends += "create table " + tableName + "\n"
 
 			if sourceType == constants.SourceTypeMysql {
-				var m constants.SourceMysqlParams
-				var t constants.FlinkTableDefineMysql
+				m := ManagerUrl.MySQL
+				t := tableUrl.MySQL
 
-				if err = json.Unmarshal([]byte(ManagerUrl), &m); err != nil {
-					return
-				}
-				if err = json.Unmarshal([]byte(tableUrl), &t); err != nil {
-					return
-				}
 				jobElement.ZeppelinDepends += "("
 				jobElement.ZeppelinDepends += GetSqlColumnDefine(t.SqlColumn)
 				jobElement.ZeppelinDepends += ") WITH (\n"
 				jobElement.ZeppelinDepends += "'connector' = 'jdbc',\n"
 				jobElement.ZeppelinDepends += "'url' = 'jdbc:" + "mysql" + "://" + m.Host + ":" + fmt.Sprintf("%d", m.Port) + "/" + m.Database + "',\n"
-				jobElement.ZeppelinDepends += "'table-name' = '" + tableName + "',\n"
+				jobElement.ZeppelinDepends += "'table-name' = '" + validTableName(tableName, t.MappingName) + "',\n"
 				jobElement.ZeppelinDepends += "'username' = '" + m.User + "',\n"
 				jobElement.ZeppelinDepends += "'password' = '" + m.Password + "'\n"
-				for _, opt := range m.ConnectorOptions {
-					jobElement.ZeppelinDepends += "," + opt + "\n"
-				}
 				for _, opt := range t.ConnectorOptions {
-					jobElement.ZeppelinDepends += "," + opt + "\n"
+					jobElement.ZeppelinDepends += ",'" + opt.Name + "' = '" + opt.Value + "'\n"
 				}
 
 			} else if sourceType == constants.SourceTypePostgreSQL {
-				var m constants.SourcePostgreSQLParams
-				var t constants.FlinkTableDefinePostgreSQL
+				m := ManagerUrl.PostgreSQL
+				t := tableUrl.PostgreSQL
 
-				if err = json.Unmarshal([]byte(ManagerUrl), &m); err != nil {
-					return
-				}
-				if err = json.Unmarshal([]byte(tableUrl), &t); err != nil {
-					return
-				}
 				jobElement.ZeppelinDepends += "("
 				jobElement.ZeppelinDepends += GetSqlColumnDefine(t.SqlColumn)
 				jobElement.ZeppelinDepends += ") WITH (\n"
 				jobElement.ZeppelinDepends += "'connector' = 'jdbc',\n"
 				jobElement.ZeppelinDepends += "'url' = 'jdbc:" + "postgresql" + "://" + m.Host + ":" + fmt.Sprintf("%d", m.Port) + "/" + m.Database + "',\n"
-				jobElement.ZeppelinDepends += "'table-name' = '" + tableName + "',\n"
+				jobElement.ZeppelinDepends += "'table-name' = '" + validTableName(tableName, t.MappingName) + "',\n"
 				jobElement.ZeppelinDepends += "'username' = '" + m.User + "',\n"
 				jobElement.ZeppelinDepends += "'password' = '" + m.Password + "'\n"
-				for _, opt := range m.ConnectorOptions {
-					jobElement.ZeppelinDepends += "," + opt + "\n"
-				}
 				for _, opt := range t.ConnectorOptions {
-					jobElement.ZeppelinDepends += "," + opt + "\n"
+					jobElement.ZeppelinDepends += ",'" + opt.Name + "' = '" + opt.Value + "'\n"
 				}
 
 			} else if sourceType == constants.SourceTypeClickHouse {
-				var m constants.SourceClickHouseParams
-				var t constants.FlinkTableDefineClickHouse
+				m := ManagerUrl.ClickHouse
+				t := tableUrl.ClickHouse
 
-				if err = json.Unmarshal([]byte(ManagerUrl), &m); err != nil {
-					return
-				}
-				if err = json.Unmarshal([]byte(tableUrl), &t); err != nil {
-					return
-				}
 				jobElement.ZeppelinDepends += "("
 				jobElement.ZeppelinDepends += GetSqlColumnDefine(t.SqlColumn)
 				jobElement.ZeppelinDepends += ") WITH (\n"
 				jobElement.ZeppelinDepends += "'connector' = 'clickhouse',\n"
 				jobElement.ZeppelinDepends += "'url' = 'clickhouse://" + m.Host + ":" + fmt.Sprintf("%d", m.Port) + "',\n"
-				jobElement.ZeppelinDepends += "'table-name' = '" + tableName + "',\n"
+				jobElement.ZeppelinDepends += "'table-name' = '" + validTableName(tableName, t.MappingName) + "',\n"
 				jobElement.ZeppelinDepends += "'username' = '" + m.User + "',\n"
 				jobElement.ZeppelinDepends += "'database-name' = '" + m.Database + "',\n"
 				jobElement.ZeppelinDepends += "'password' = '" + m.Password + "'\n"
-				for _, opt := range m.ConnectorOptions {
-					jobElement.ZeppelinDepends += "," + opt + "\n"
-				}
+
 				for _, opt := range t.ConnectorOptions {
-					jobElement.ZeppelinDepends += "," + opt + "\n"
+					jobElement.ZeppelinDepends += ",'" + opt.Name + "' = '" + opt.Value + "'\n"
 				}
 
 			} else if sourceType == constants.SourceTypeKafka {
-				var m constants.SourceKafkaParams
-				var t constants.FlinkTableDefineKafka
+				m := ManagerUrl.Kafka
+				t := tableUrl.Kafka
 
-				if err = json.Unmarshal([]byte(ManagerUrl), &m); err != nil {
-					return
-				}
-				if err = json.Unmarshal([]byte(tableUrl), &t); err != nil {
-					return
-				}
 				jobElement.ZeppelinDepends += "("
 				jobElement.ZeppelinDepends += GetSqlColumnDefine(t.SqlColumn)
 				jobElement.ZeppelinDepends += ") WITH (\n"
 				jobElement.ZeppelinDepends += "'connector' = 'kafka',\n"
 				jobElement.ZeppelinDepends += "'topic' = '" + t.Topic + "',\n"
-				jobElement.ZeppelinDepends += "'properties.bootstrap.servers' = '" + m.Host + ":" + fmt.Sprintf("%d", m.Port) + "',\n"
+				jobElement.ZeppelinDepends += "'properties.bootstrap.servers' = '" + m.KafkaBrokers + "',\n"
 				jobElement.ZeppelinDepends += "'format' = '" + t.Format + "'\n"
-				for _, opt := range m.ConnectorOptions {
-					jobElement.ZeppelinDepends += "," + opt + "\n"
-				}
+
 				for _, opt := range t.ConnectorOptions {
-					jobElement.ZeppelinDepends += "," + opt + "\n"
+					jobElement.ZeppelinDepends += ",'" + opt.Name + "' = '" + opt.Value + "'\n"
 				}
 
 			} else if sourceType == constants.SourceTypeS3 {
-				var m constants.SourceS3Params
-				var t constants.FlinkTableDefineS3
+				t := tableUrl.S3
 
-				if err = json.Unmarshal([]byte(ManagerUrl), &m); err != nil {
-					return
-				}
-				if err = json.Unmarshal([]byte(tableUrl), &t); err != nil {
-					return
-				}
 				jobElement.ZeppelinDepends += "("
 				jobElement.ZeppelinDepends += GetSqlColumnDefine(t.SqlColumn)
 				jobElement.ZeppelinDepends += ") WITH (\n"
 				jobElement.ZeppelinDepends += "'connector' = 'filesystem',\n"
 				jobElement.ZeppelinDepends += "'path' = '" + t.Path + "',\n"
 				jobElement.ZeppelinDepends += "'format' = '" + t.Format + "'\n"
+
 				for _, opt := range t.ConnectorOptions {
-					jobElement.ZeppelinDepends += "," + opt + "\n"
+					jobElement.ZeppelinDepends += ",'" + opt.Name + "' = '" + opt.Value + "'\n"
+				}
+			} else if sourceType == constants.SourceTypeHDFS {
+				m := ManagerUrl.HDFS
+				t := tableUrl.HDFS
+
+				jobElement.ZeppelinDepends += "("
+				jobElement.ZeppelinDepends += GetSqlColumnDefine(t.SqlColumn)
+				jobElement.ZeppelinDepends += ") WITH (\n"
+				jobElement.ZeppelinDepends += "'connector' = 'filesystem',\n"
+				jobElement.ZeppelinDepends += "'path' = 'hdfs://" + m.Host + ":" + fmt.Sprintf("%d", m.Port) + "/" + t.Path + "',\n"
+				jobElement.ZeppelinDepends += "'format' = '" + t.Format + "'\n"
+
+				for _, opt := range t.ConnectorOptions {
+					jobElement.ZeppelinDepends += ",'" + opt.Name + "' = '" + opt.Value + "'\n"
 				}
 			} else if sourceType == constants.SourceTypeHbase {
-				var m constants.SourceHbaseParams
-				var t constants.FlinkTableDefineHbase
+				m := ManagerUrl.Hbase
+				t := tableUrl.Hbase
 
-				if err = json.Unmarshal([]byte(ManagerUrl), &m); err != nil {
-					return
-				}
-				if err = json.Unmarshal([]byte(tableUrl), &t); err != nil {
-					return
-				}
 				jobElement.ZeppelinDepends += "("
 				jobElement.ZeppelinDepends += GetSqlColumnDefine(t.SqlColumn)
 				jobElement.ZeppelinDepends += ") WITH (\n"
 				jobElement.ZeppelinDepends += "'connector' = 'hbase-2.2',\n"
-				jobElement.ZeppelinDepends += "'table-name' = '" + tableName + "',\n"
+				jobElement.ZeppelinDepends += "'table-name' = '" + validTableName(tableName, t.MappingName) + "',\n"
 				jobElement.ZeppelinDepends += "'zookeeper.quorum' = '" + m.Zookeeper + "',\n"
 				jobElement.ZeppelinDepends += "'zookeeper.znode.parent' = '" + m.Znode + "'\n"
 
 				for _, opt := range t.ConnectorOptions {
-					jobElement.ZeppelinDepends += "," + opt + "\n"
+					jobElement.ZeppelinDepends += ",'" + opt.Name + "' = '" + opt.Value + "'\n"
 				}
 			} else if sourceType == constants.SourceTypeFtp {
 				var m constants.SourceFtpParams
@@ -1720,7 +1703,7 @@ func printSqlAndElement(ctx context.Context, dag []constants.DagNode, job consta
 				jobElement.ZeppelinDepends += ") WITH (\n"
 				jobElement.ZeppelinDepends += "'connector' = 'ftp',\n"
 				jobElement.ZeppelinDepends += "'host' = '" + m.Host + "',\n"
-				jobElement.ZeppelinDepends += "'port' = '" + fmt.Sprintf("%d",m.Port) + "',\n"
+				jobElement.ZeppelinDepends += "'port' = '" + fmt.Sprintf("%d", m.Port) + "',\n"
 				jobElement.ZeppelinDepends += "'path' = '" + t.Path + "',\n"
 				jobElement.ZeppelinDepends += "'format' = '" + t.Format + "'\n"
 				for _, opt := range m.ConnectorOptions {
@@ -1762,15 +1745,15 @@ func printSqlAndElement(ctx context.Context, dag []constants.DagNode, job consta
 
 		//mainrun
 		jobElement.ZeppelinMainRun = title
-		if command == constants.ExplainCommand || command == constants.SyntaxCheckCommand {
+		if job.Command == constants.JobCommandExplain || job.Command == constants.JobCommandSyntax {
 			jobElement.ZeppelinMainRun += "explain "
 		}
 		jobElement.ZeppelinMainRun += sql.Sql
 
-		udfList.Limit = 100000
+		udfList.Limit = 10000
 		udfList.Offset = 0
-		udfList.SpaceID = spaceID
-		udfListRep, err = udfClient.client.List(ctx, &udfList)
+		udfList.SpaceID = job.Job.SpaceID
+		udfListResp, err = udfClient.client.List(ctx, &udfList)
 		if err != nil {
 			return
 		}
@@ -1778,14 +1761,14 @@ func printSqlAndElement(ctx context.Context, dag []constants.DagNode, job consta
 		firstScala := true
 		firstJar := true
 		firstPython := true
-		for _, udfInfo := range udfListRep.Infos {
-			if udfInfo.UdfType == constants.PythonUDF || udfInfo.UdfType == constants.PythonUDTF {
+		for _, udfInfo := range udfListResp.Infos {
+			if udfInfo.UDFType == constants.PythonUDF || udfInfo.UDFType == constants.PythonUDTF {
 				if firstPython == true {
 					jobElement.ZeppelinPythonUDF = "%flink.ipyflink\n\n"
 					firstPython = false
 				}
 				jobElement.ZeppelinPythonUDF += udfInfo.Define + "\n\n"
-			} else if udfInfo.UdfType == constants.ScalaUDF || udfInfo.UdfType == constants.ScalaUDTF || udfInfo.UdfType == constants.ScalaUDTTF {
+			} else if udfInfo.UDFType == constants.ScalaUDF || udfInfo.UDFType == constants.ScalaUDTF || udfInfo.UDFType == constants.ScalaUDTTF {
 				if firstScala == true {
 					jobElement.ZeppelinScalaUDF = "%flink\n\n"
 					firstScala = false
@@ -1802,55 +1785,34 @@ func printSqlAndElement(ctx context.Context, dag []constants.DagNode, job consta
 		}
 		jobElement.ZeppelinConf += "\n"
 
-		engineRequest.AccessKey = jobElement.S3info.AccessKey
-		engineRequest.SecretKey = jobElement.S3info.SecretKey
-		engineRequest.EndPoint = jobElement.S3info.EndPoint
-		engineRequest.HbaseHosts = jobElement.HbaseHosts
+		if mode == operatorMode {
+			job.Job.Env.Hbase = jobElement.Hbase
+			job.Job.Env.Flink.S3 = jobElement.S3
+		}
 	}
 
-	engineRequestByte, _ := json.Marshal(engineRequest)
-	engineResponseString, tmperr := GetEngine(string(engineRequestByte))
-	if tmperr != nil {
-		err = tmperr
-		return
-	}
-	jobElement.Resources.JobID = jobID
-	jobElement.Resources.EngineID = engineID
+	var engineresp *enginepb.CreateFlinkResponse
 
-	if err = json.Unmarshal([]byte(engineResponseString), &engineResponse); err != nil {
-		return
-	}
-
-	jobElement.ZeppelinConf = strings.Replace(jobElement.ZeppelinConf, FlinkHostQuote, engineResponse.EngineHost, -1)
-	jobElement.ZeppelinConf = strings.Replace(jobElement.ZeppelinConf, FlinkPortQuote, engineResponse.EnginePort, -1)
-	jobElement.ZeppelinMainRun = strings.Replace(jobElement.ZeppelinMainRun, FlinkHostQuote, engineResponse.EngineHost, -1)
-	jobElement.ZeppelinMainRun = strings.Replace(jobElement.ZeppelinMainRun, FlinkPortQuote, engineResponse.EnginePort, -1)
-
-	return
-}
-
-func FlinkJobFree(jobResources string) (freeResources string, err error) {
-	var (
-		v constants.JobResources
-		r constants.JobFreeActionFlink
-	)
-
-	err = json.Unmarshal([]byte(jobResources), &v)
+	engineresp, err = engineClient.client.Create(ctx, &enginepb.CreateFlinkRequest{Name: job.Job.JobID, Namespace: job.Job.SpaceID, WaitingReady: true, WaitingTimeout: 600, Conf: job.Job.Env})
 	if err != nil {
 		return
 	}
 
-	if v.JobID != "" {
-		FreeEngine(v.JobID)
-	}
+	jobElement.ZeppelinConf = strings.Replace(jobElement.ZeppelinConf, FlinkHostQuote, strings.Split(engineresp.Url, ":")[0], -1)
+	jobElement.ZeppelinConf = strings.Replace(jobElement.ZeppelinConf, FlinkPortQuote, strings.Split(engineresp.Url, ":")[1], -1) //ip
+	jobElement.ZeppelinMainRun = strings.Replace(jobElement.ZeppelinMainRun, FlinkHostQuote, strings.Split(engineresp.Url, ":")[0], -1)
+	jobElement.ZeppelinMainRun = strings.Replace(jobElement.ZeppelinMainRun, FlinkPortQuote, strings.Split(engineresp.Url, ":")[1], -1)
 
-	if v.Jar != "" {
-		r.ZeppelinDeleteJar = "%sh\n\n"
-		r.ZeppelinDeleteJar += "rm -rf /home/" + v.JobID + "\n"
-		r.ZeppelinDeleteJar += "deluser " + v.JobID
+	return
+}
 
-		freeResourcesByte, _ := json.Marshal(r)
-		freeResources = string(freeResourcesByte)
+func FlinkJobFree(req *request.JobFree) (resp response.JobFree, err error) {
+	if req.Resources.Jar != "" {
+		ZeppelinDeleteJar := "%sh\n\n"
+		ZeppelinDeleteJar += "rm -rf /home/" + req.Resources.JobID + "\n"
+		ZeppelinDeleteJar += "deluser " + req.Resources.JobID
+
+		resp.ZeppelinDeleteJar = ZeppelinDeleteJar
 	}
 
 	return
