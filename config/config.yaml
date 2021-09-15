@@ -2,13 +2,13 @@
 log_level: 1
 
 grpc_server:
-  address: "127.0.0.1:53001"  # required
+  address: "127.0.0.1:9109"  # required
   log_level: 2 #  1 => info, 2 => waring, 3 => error, 4 => fatal
   log_verbosity: 9
 
 metrics_server:
   enabled: true
-  address: "127.0.0.1:53002" # required when enabled is true
+  address: "127.0.0.1:9209" # required when enabled is true
   url_path: "/metrics"
 
 zeppelin_flink_home: "/home/lzzhang/bigdata/flink-bin-download/flink-1.11.2"
@@ -17,17 +17,22 @@ zeppelin_flink_execute_jars: "MySQL:/home/lzzhang/bigdata/flink-bin-download/zep
 zeppelin_hadoop_conf: "/opt/homebrew/Cellar/hadoop/3.3.1/libexec/etc/hadoop"
 
 sourcemanager_server:
-  address: "127.0.0.1:50001"
+  address: "127.0.0.1:9104"
   log_level: 2
   log_verbosity: 99
 
 udfmanager_server:
-  address: "127.0.0.1:52001"
+  address: "127.0.0.1:9106"
+  log_level: 2
+  log_verbosity: 99
+
+filemanager_server:
+  address: "127.0.0.1:9111"
   log_level: 2
   log_verbosity: 99
 
 enginemanager_server:
-  address: "127.0.0.1:59001"
+  address: "127.0.0.1:9114"
   log_level: 2
   log_verbosity: 99
 

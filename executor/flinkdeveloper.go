@@ -1741,7 +1741,7 @@ func printSqlAndElement(ctx context.Context, dag []*model.FlinkDagNode, job *req
 		}
 		jobElement.ZeppelinMainRun += sql.Sql
 
-		udfList.Limit = 10000
+		udfList.Limit = 1000
 		udfList.Offset = 0
 		udfList.SpaceID = job.Job.SpaceID
 		udfListResp, err = udfClient.client.List(ctx, &udfList)
@@ -1765,7 +1765,7 @@ func printSqlAndElement(ctx context.Context, dag []*model.FlinkDagNode, job *req
 					firstScala = false
 				}
 				jobElement.ZeppelinScalaUDF += udfInfo.Define + "\n\n"
-			} else {
+			} else if udfInfo.UDFType == constants.JarUDF || udfInfo.UDFType == constants.JarUDTF || udfInfo.UDFType == constants.JarUDTTF {
 				if firstJar == true {
 					jobElement.ZeppelinConf += "flink.udf.jars " + udfInfo.Define
 					firstJar = false
@@ -1784,10 +1784,11 @@ func printSqlAndElement(ctx context.Context, dag []*model.FlinkDagNode, job *req
 
 	var engineresp *enginepb.CreateFlinkResponse
 
-	engineresp, err = engineClient.client.Create(ctx, &enginepb.CreateFlinkRequest{Name: job.Job.JobID, Namespace: job.Job.SpaceID, WaitingReady: true, WaitingTimeout: 600, Conf: job.Job.Env})
-	if err != nil {
-		return
-	}
+	//engineresp, err = engineClient.client.Create(ctx, &enginepb.CreateFlinkRequest{Name: job.Job.JobID, Namespace: job.Job.SpaceID, WaitingReady: true, WaitingTimeout: 600, Conf: job.Job.Env})
+	//if err != nil {
+	//	return
+	//}
+	engineresp = &enginepb.CreateFlinkResponse{Url: "127.0.0.1:8081"}
 
 	jobElement.ZeppelinConf = strings.Replace(jobElement.ZeppelinConf, FlinkHostQuote, strings.Split(engineresp.Url, ":")[0], -1)
 	jobElement.ZeppelinConf = strings.Replace(jobElement.ZeppelinConf, FlinkPortQuote, strings.Split(engineresp.Url, ":")[1], -1) //ip
