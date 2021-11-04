@@ -1392,9 +1392,10 @@ func parserJobInfo(ctx context.Context, job *request.JobParser, engineClient Eng
 				interpreter = "%flink.bsql"
 			}
 			if job.GetJob().GetArgs().GetParallelism() > 0 {
-				interpreter += "(runAsOne=true,parallelism=" + fmt.Sprintf("%d", job.GetJob().GetArgs().GetParallelism()) + ")"
+				//interpreter += "(runAsOne=true,parallelism=" + fmt.Sprintf("%d", job.GetJob().GetArgs().GetParallelism()) + ")"
+				interpreter += "(parallelism=" + fmt.Sprintf("%d", job.GetJob().GetArgs().GetParallelism()) + ")"
 			} else {
-				interpreter += "(runAsOne=true)"
+				//interpreter += "(runAsOne=true)"
 			}
 			interpreter += "\n\n"
 		}
@@ -1412,13 +1413,20 @@ func parserJobInfo(ctx context.Context, job *request.JobParser, engineClient Eng
 		// operator depend
 		if job.GetJob().GetCode().GetType() == model.StreamJob_Operator {
 			var (
-				destOperator flinkpb.FlinkOperator
+				firstOperator flinkpb.FlinkOperator
 			)
 
-			if destOperator, err = getOperatorNodeByType(job.GetJob().GetCode().GetOperators(), flinkpb.FlinkOperator_Dest); err != nil {
-				return
+			if len(job.GetJob().GetCode().GetOperators()) == 1 {
+				if firstOperator, err = getOperatorNodeByType(job.GetJob().GetCode().GetOperators(), flinkpb.FlinkOperator_Source); err != nil {
+					return
+				}
+			} else {
+				if firstOperator, err = getOperatorNodeByType(job.GetJob().GetCode().GetOperators(), flinkpb.FlinkOperator_Dest); err != nil {
+					return
+				}
 			}
-			if sql, err = printOperator(job.GetJob().GetCode().GetOperators(), destOperator, SqlStack{Standard: true}); err != nil {
+
+			if sql, err = printOperator(job.GetJob().GetCode().GetOperators(), firstOperator, SqlStack{Standard: true}); err != nil {
 				return
 			}
 			if sql.NodeCount != len(job.GetJob().GetCode().GetOperators()) {
