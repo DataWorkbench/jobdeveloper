@@ -1403,7 +1403,8 @@ func parserJobInfo(ctx context.Context, job *request.JobParser, engineClient Eng
 		//conf
 		jobElement.ZeppelinConf = "%flink.conf\n\n"
 		jobElement.ZeppelinConf += "FLINK_HOME " + flinkHome + "\n"
-		jobElement.ZeppelinConf += "HADOOP_CONF_DIR " + hadoopConf + "\n"
+		//TODO
+		//jobElement.ZeppelinConf += "HADOOP_CONF_DIR " + hadoopConf + "\n"
 		jobElement.ZeppelinConf += "flink.execution.mode remote\n"
 		jobElement.ZeppelinConf += "flink.execution.remote.host " + FlinkHostQuote + "\n"
 		jobElement.ZeppelinConf += "flink.execution.remote.port " + FlinkPortQuote + "\n"
@@ -1704,7 +1705,9 @@ func parserJobInfo(ctx context.Context, job *request.JobParser, engineClient Eng
 	//if err != nil {
 	//	return
 	//}
-	engineresp = &enginepb.CreateFlinkResponse{Url: "127.0.0.1:8081"}
+
+	//engineresp = &enginepb.CreateFlinkResponse{Url: "127.0.0.1:8081"}
+	engineresp = &enginepb.CreateFlinkResponse{Url: "flinkjobmanager:8081"}
 
 	jobElement.ZeppelinConf = strings.Replace(jobElement.ZeppelinConf, FlinkHostQuote, strings.Split(engineresp.Url, ":")[0], -1)
 	jobElement.ZeppelinConf = strings.Replace(jobElement.ZeppelinConf, FlinkPortQuote, strings.Split(engineresp.Url, ":")[1], -1) //ip
