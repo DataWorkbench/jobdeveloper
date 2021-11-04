@@ -8,9 +8,11 @@ import (
 	"github.com/DataWorkbench/glog"
 	"github.com/stretchr/testify/require"
 
+	"github.com/DataWorkbench/common/constants"
 	"github.com/DataWorkbench/common/grpcwrap"
 	"github.com/DataWorkbench/common/utils/idgenerator"
 
+	"github.com/DataWorkbench/gproto/pkg/flinkpb"
 	"github.com/DataWorkbench/gproto/pkg/jobdevpb"
 	"github.com/DataWorkbench/gproto/pkg/model"
 	"github.com/DataWorkbench/gproto/pkg/request"
@@ -82,6 +84,11 @@ create table pd
 
 var source_dest request.JobParser
 var source_rsource_join_dest_1 request.JobParser
+var sql request.JobParser
+var python request.JobParser
+var scala request.JobParser
+var java request.JobParser
+var javafree request.JobFree
 
 //var udf_values_dest request.JobParser
 //var const_dest request.JobParser
@@ -115,7 +122,16 @@ func mainInit(t *testing.T) {
 		return
 	}
 	initDone = true
-	source_dest = request.JobParser{Command: "run", Job: &request.JobInfo{JobID: "job-0123456789012345", SpaceID: "wks-0123456789012345", Env: &model.StreamFlowEnv{EngineId: "eng-0123456789012345", JobCu: 1, TaskCu: 1, TaskNum: 1, Flink: &model.FlinkConfig{Parallelism: 1}}, Nodes: &model.FlinkJobNodes{JobNodes: []*model.FlinkDagNode{&model.FlinkDagNode{NodeType: "Source", NodeID: "xx0", DownStream: "xx1", PointX: "x", PointY: "y", Property: &model.FlinkNodeProperty{Source: &model.SourceNodeProperty{TableID: "sot-0123456789012347", Column: []*model.ColumnAs{&model.ColumnAs{Field: "id"}, &model.ColumnAs{Field: "id1"}}}}}, &model.FlinkDagNode{NodeType: "Dest", NodeID: "xx1", UpStream: "xx0", PointX: "x", PointY: "y", Property: &model.FlinkNodeProperty{Dest: &model.DestNodeProperty{TableID: "sot-0123456789012348", Columns: []string{"id", "id1"}}}}}}}}
+	spaceid := "wks-0000000000000001"
+	sql = request.JobParser{Command: constants.JobCommandRun, Job: &request.JobInfo{JobId: "job-0000000000000sql", SpaceId: spaceid, Code: &model.StreamJobCode{Type: model.StreamJob_SQL, Sql: &flinkpb.FlinkSQL{Code: "drop table if exists pd;\\ncreate table pd\\n(id bigint,id1 bigint) WITH (\\n'connector' = 'jdbc',\\n'url' = 'jdbc:mysql://127.0.0.1:3306/data_workbench',\\n'table-name' = 'pd',\\n'username' = 'root',\\n'password' = '123456'\\n);\\n\\n\\ndrop table if exists ms;\\ncreate table ms\\n(id bigint,id1 bigint) WITH (\\n'connector' = 'jdbc',\\n'url' = 'jdbc:mysql://127.0.0.1:3306/data_workbench',\\n'table-name' = 'ms',\\n'username' = 'root',\\n'password' = '123456'\\n);\\n\\n\\ninsert into pd(id,id1) select ALL id as id,id1 from ms \\n"}}}}
+	python = request.JobParser{Command: constants.JobCommandRun, Job: &request.JobInfo{JobId: "job-0000000000python", SpaceId: spaceid, Code: &model.StreamJobCode{Type: model.StreamJob_Python, Python: &flinkpb.FlinkPython{Code: "print(\"hello world\")"}}}}
+	scala = request.JobParser{Command: constants.JobCommandRun, Job: &request.JobInfo{JobId: "job-00000000000scala", SpaceId: spaceid, Code: &model.StreamJobCode{Type: model.StreamJob_Scala, Scala: &flinkpb.FlinkScala{Code: "println(\"hello world\")"}}}}
+	java = request.JobParser{Command: constants.JobCommandRun, Job: &request.JobInfo{JobId: "job-000000000000java", SpaceId: spaceid, Code: &model.StreamJobCode{Type: model.StreamJob_Jar, Jar: &flinkpb.FlinkJar{ResourceId: "rsm-0000000000000jar"}}}}
+	javafree = request.JobFree{Resources: &model.JobResources{JobId: "job-000000000000java", Jar: "rsm-0000000000000jar"}}
+	source_dest = request.JobParser{Command: constants.JobCommandRun, Job: &request.JobInfo{JobId: "job-00000source_dest", SpaceId: spaceid, Code: &model.StreamJobCode{Type: model.StreamJob_Operator, Operators: []*flinkpb.FlinkOperator{&flinkpb.FlinkOperator{Type: flinkpb.FlinkOperator_Source, Id: "xx0", DownStream: "xx1", PointX: 1, PointY: 1, Property: &flinkpb.OperatorProperty{Source: &flinkpb.SourceOperator{TableId: "sot-00000mysqlsource", Column: []*flinkpb.ColumnAs{&flinkpb.ColumnAs{Field: "id"}, &flinkpb.ColumnAs{Field: "id1"}}}}}, &flinkpb.FlinkOperator{Type: flinkpb.FlinkOperator_Dest, Id: "xx1", Upstream: "xx0", PointX: 1, PointY: 1, Property: &flinkpb.OperatorProperty{Dest: &flinkpb.DestOperator{TableId: "sot-0000000mysqldest", Columns: []string{"id", "id1"}}}}}}}}
+
+	//source_dest = request.JobParser{Command: "run", Job: &request.JobInfo{JobID: "job-0123456789012345", SpaceID: spaceid, Env: &model.StreamFlowEnv{EngineId: "eng-0123456789012345", JobCu: 1, TaskCu: 1, TaskNum: 1, Flink: &model.FlinkConfig{Parallelism: 1}}, Nodes: &model.FlinkJobNodes{JobNodes: []*model.FlinkDagNode{&model.FlinkDagNode{NodeType: "Source", NodeID: "xx0", DownStream: "xx1", PointX: "x", PointY: "y", Property: &model.FlinkNodeProperty{Source: &model.SourceNodeProperty{TableID: "sot-0123456789012347", Column: []*model.ColumnAs{&model.ColumnAs{Field: "id"}, &model.ColumnAs{Field: "id1"}}}}}, &model.FlinkDagNode{NodeType: "Dest", NodeID: "xx1", UpStream: "xx0", PointX: "x", PointY: "y", Property: &model.FlinkNodeProperty{Dest: &model.DestNodeProperty{TableID: "sot-0123456789012348", Columns: []string{"id", "id1"}}}}}}}}
+	//source_dest = request.JobParser{Command: "run", Job: &request.JobInfo{JobID: "job-0123456789012345", SpaceID: spaceid, Env: &model.StreamFlowEnv{EngineId: "eng-0123456789012345", JobCu: 1, TaskCu: 1, TaskNum: 1, Flink: &model.FlinkConfig{Parallelism: 1}}, Nodes: &model.FlinkJobNodes{JobNodes: []*model.FlinkDagNode{&model.FlinkDagNode{NodeType: "Source", NodeID: "xx0", DownStream: "xx1", PointX: "x", PointY: "y", Property: &model.FlinkNodeProperty{Source: &model.SourceNodeProperty{TableID: "sot-0123456789012347", Column: []*model.ColumnAs{&model.ColumnAs{Field: "id"}, &model.ColumnAs{Field: "id1"}}}}}, &model.FlinkDagNode{NodeType: "Dest", NodeID: "xx1", UpStream: "xx0", PointX: "x", PointY: "y", Property: &model.FlinkNodeProperty{Dest: &model.DestNodeProperty{TableID: "sot-0123456789012348", Columns: []string{"id", "id1"}}}}}}}}
 	//source_rsource_join_dest_1 = request.JobParser{ID: "01234567890123456789", WorkspaceID: "01234567890123456789", EngineID: "01234567890123456789", EngineType: "flink", Command: "run", JobInfo: `{"stream_sql":true,"env":{"engine_id":"","parallelism":2,"job_mem":0,"job_cpu":0,"task_cpu":0,"task_mem":0,"task_num":0,"custom":null},"nodes":[{"nodetype":"Source","nodeid":"xx0","upstream":"","upstreamright":"","downstream":"xx1","pointx":"","pointy":"","property":{"id":"sot-0123456789012346","table":"billing as k","distinct":"ALL","column":[{"field":"k.paycount * r.rate","as":"stotal"}]}},{"nodetype":"Source","nodeid":"rxx0","upstream":"","upstreamright":"","downstream":"xx1","pointx":"","pointy":"","property":{"id":"sot-0123456789012355","table":"mw FOR SYSTEM_TIME AS OF k.tproctime AS r","distinct":"ALL","column":null}},{"nodetype":"Join","nodeid":"xx1","upstream":"xx0","upstreamright":"rxx0","downstream":"xx2","pointx":"","pointy":"","property":{"join":"JOIN","expression":"r.dbmoney = k.paymoney","column":[{"field":"stotal","as":""}]}},{"nodetype":"Dest","nodeid":"xx2","upstream":"xx1","upstreamright":"","downstream":"","pointx":"","pointy":"","property":{"table":"mwd","column":["total"],"id":"sot-0123456789012356"}}]}`}
 	//udf_values_dest = request.JobParser{ID: "xxxxxxxxxxxxxxxxxxxx", WorkspaceID: "xxxxxxxxxxxxxxxxxxxx", EngineID: "xxxxxxxxxxxxxxxxxxxx", EngineType: "flink", JobInfo: `{"command":"","stream_sql":false,"parallelism":0,"job_mem":0,"job_cpu":0,"task_cpu":0,"task_mem":0,"task_num":0,"nodes":"[{\"nodetype\":\"UDF\", \"nodeid\":\"xx0\", \"upstream\":\"\", \"downstream\":\"xx1\", \"property\":\"{\\\"id\\\":\\\"udf-xx0\\\"}\"}, {\"nodetype\":\"Values\", \"nodeid\":\"xx1\", \"upstream\":\"xx0\", \"downstream\":\"xx2\", \"property\":\"{\\\"row\\\": [\\\"1,2\\\", \\\"3,4\\\"]}\"}, {\"nodetype\":\"Dest\", \"nodeid\":\"xx2\", \"upstream\":\"xx1\", \"downstream\":\"\", \"property\":\"{\\\"table\\\":\\\"pd\\\", \\\"column\\\": [\\\"id\\\", \\\"id1\\\"], \\\"id\\\":\\\"sot-xx2\\\"}\"}]"}`}
 	//const_dest = request.JobParser{JobInfo: `[{"nodetype":"Const", "nodeid":"xx0", "upstream":"", "downstream":"xx1", "property":"{\"column\": [{\"field\":\"1\", \"as\":\"a\" }, {\"field\":\"2\", \"as\":\"b\" }]}"}, {"nodetype":"Dest", "nodeid":"xx1", "upstream":"xx0", "downstream":"", "property":"{\"table\":\"pd\", \"column\": [\"id\", \"id1\"], \"id\":\"sot-xx1\"}"}]`}
@@ -165,7 +181,7 @@ func errorCode(err error) string {
 	return strings.Split(err.Error(), " ")[7]
 }
 
-func Test_NodeRelations(t *testing.T) {
+func Test_OperatorRelations(t *testing.T) {
 	mainInit(t)
 	var req model.EmptyStruct
 
@@ -181,9 +197,19 @@ func Test_JobParser(t *testing.T) {
 		//sql *response.JobParser
 	)
 
-	//sql, err = client.JobParser(ctx, &source_dest)
+	_, err = client.JobParser(ctx, &sql)
+	require.Nil(t, err, "%+v", err)
+	_, err = client.JobParser(ctx, &python)
+	require.Nil(t, err, "%+v", err)
+	_, err = client.JobParser(ctx, &scala)
+	require.Nil(t, err, "%+v", err)
+	_, err = client.JobParser(ctx, &java)
+	require.Nil(t, err, "%+v", err)
 	_, err = client.JobParser(ctx, &source_dest)
 	require.Nil(t, err, "%+v", err)
+	//sql, err = client.JobParser(ctx, &source_dest)
+	//_, err = client.JobParser(ctx, &source_dest)
+	//require.Nil(t, err, "%+v", err)
 	//require.Equal(t, "{\"conf\":\"%flink.conf\\n\\nFLINK_HOME /home/lzzhang/bigdata/flink-bin-download/flink-1.11.2\\nflink.execution.mode remote\\nflink.execution.remote.host 127.0.0.1\\nflink.execution.remote.port 8081\\nzeppelin.flink.concurrentStreamSql.max 1000000\\nzeppelin.flink.concurrentBatchSql.max 1000000\\nflink.execution.jars /home/lzzhang/bigdata/flink-bin-download/zeppelin-0.9.0-bin-all/lib/flink-connector-jdbc_2.11-1.11.2.jar,/home/lzzhang/bigdata/flink-bin-download/zeppelin-0.9.0-bin-all/lib/mysql-connector-java-8.0.21.jar\\n\\n\",\"depends\":\"%flink.ssql(parallelism=2)\\n\\ndrop table if exists pd;\\ncreate table pd\\n(id bigint,id1 bigint) WITH (\\n'connector' = 'jdbc',\\n'url' = 'jdbc:mysql://127.0.0.1:3306/data_workbench',\\n'table-name' = 'pd',\\n'username' = 'root',\\n'password' = '123456'\\n);\\n\\n\\ndrop table if exists ms;\\ncreate table ms\\n(id bigint,id1 bigint) WITH (\\n'connector' = 'jdbc',\\n'url' = 'jdbc:mysql://127.0.0.1:3306/data_workbench',\\n'table-name' = 'ms',\\n'username' = 'root',\\n'password' = '123456'\\n);\\n\\n\\n\",\"funcscala\":\"\",\"mainrun\":\"%flink.ssql(parallelism=2)\\n\\ninsert into pd(id,id1)  select ALL id as id,id1 from ms \",\"s3\":{\"accesskey\":\"\",\"secretkey\":\"\",\"endpoint\":\"\"},\"resource\":{\"jar\":\"\",\"jobid\":\"01234567890123456789\",\"engineID\":\"01234567890123456789\"}}", sql.GetJobElement())
 
 	//sql, err = client.JobParser(ctx, &source_rsource_join_dest_1)
@@ -306,4 +332,15 @@ func Test_JobParser(t *testing.T) {
 	//require.Nil(t, err, "%+v", err)
 	//require.Equal(t, "insert into pd(id,id1)  select msid,mssid1 from ( select ALL ms.id as msid,mss.id1 as mssid1 from ms JOIN mss ON ms.id = mss.id) where msid = 1 ", sql.Sql)
 	//require.Equal(t, "sot-xx3,sot-xx0,sot-rxx0", sql.Table)
+}
+
+func Test_JobFree(t *testing.T) {
+	mainInit(t)
+	var (
+		err error
+		//sql *response.JobParser
+	)
+
+	_, err = client.JobFree(ctx, &javafree)
+	require.Nil(t, err, "%+v", err)
 }

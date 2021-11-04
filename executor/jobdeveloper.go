@@ -3,7 +3,7 @@ package executor
 import (
 	"context"
 
-	"github.com/DataWorkbench/common/constants"
+	"github.com/DataWorkbench/gproto/pkg/flinkpb"
 	"github.com/DataWorkbench/gproto/pkg/request"
 	"github.com/DataWorkbench/gproto/pkg/response"
 
@@ -40,12 +40,7 @@ func (ex *JobdeveloperExecutor) JobParser(ctx context.Context, req *request.JobP
 		jobElement response.JobParser
 	)
 
-	err = checkDagNodeRelations(req.GetJob().GetNodes().GetJobNodes())
-	if err != nil {
-		return
-	}
-
-	jobElement, err = printSqlAndElement(ctx, req.GetJob().GetNodes().GetJobNodes(), req, ex.engineClient, ex.sourceClient, ex.udfClient, ex.fileClient, ex.FlinkHome, ex.HadoopConf, ex.FlinkExecuteJars)
+	jobElement, err = parserJobInfo(ctx, req, ex.engineClient, ex.sourceClient, ex.udfClient, ex.fileClient, ex.FlinkHome, ex.HadoopConf, ex.FlinkExecuteJars)
 	if err != nil {
 		return
 	}
@@ -59,6 +54,6 @@ func (ex *JobdeveloperExecutor) JobFree(ctx context.Context, req *request.JobFre
 }
 
 func (ex *JobdeveloperExecutor) FlinkNodeRelations(ctx context.Context) (resp response.NodeRelations, err error) {
-	_, resp.Relations, err = GetNodeRelation(constants.EmptyNode)
+	_, resp.Relations, err = GetOperatorRelation(flinkpb.FlinkOperator_Empty)
 	return
 }

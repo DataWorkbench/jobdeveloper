@@ -4,11 +4,10 @@ import (
 	"context"
 
 	"github.com/DataWorkbench/common/grpcwrap"
-	"github.com/DataWorkbench/gproto/pkg/resource"
 )
 
 type FileClient struct {
-	client resource.ResourceManagerClient
+	//client resource.ResourceManagerClient
 }
 
 func NewFileClient(conn *grpcwrap.ClientConn) (c FileClient, err error) {
