@@ -1374,10 +1374,10 @@ func parserJobInfo(ctx context.Context, job *request.JobParser, engineClient Eng
 		jobElement.ZeppelinMainRun += flinkHome + "/bin/flink run -sae -m " + FlinkHostQuote + ":" + FlinkPortQuote + jarParallelism + entry + localJarPath + " " + jar.GetJarArgs()
 	} else {
 		var (
-			interpreter        string
-			interpreter_params string
-			sql                SqlStack
-			sourcetypes        []string
+			interpreter         string
+			interpreter_mainrun string
+			sql                 SqlStack
+			sourcetypes         []string
 		)
 
 		// interpreter
@@ -1386,6 +1386,8 @@ func parserJobInfo(ctx context.Context, job *request.JobParser, engineClient Eng
 		} else if job.GetJob().GetCode().GetType() == model.StreamJob_Python {
 			interpreter = "%flink.ipyflink\n\n"
 		} else if job.GetJob().GetCode().GetType() == model.StreamJob_SQL || job.GetJob().GetCode().GetType() == model.StreamJob_Operator {
+			var interpreter_params string
+
 			// Batch/Stream
 			if true == true {
 				interpreter = "%flink.ssql"
@@ -1393,11 +1395,22 @@ func parserJobInfo(ctx context.Context, job *request.JobParser, engineClient Eng
 				interpreter = "%flink.bsql"
 			}
 			if job.GetJob().GetArgs().GetParallelism() > 0 {
-				//interpreter += "(runAsOne=true,parallelism=" + fmt.Sprintf("%d", job.GetJob().GetArgs().GetParallelism()) + ")"
-				interpreter_params += "parallelism=" + fmt.Sprintf("%d", job.GetJob().GetArgs().GetParallelism())
-			} else {
-				//interpreter_params += "(runAsOne=true)"
+				interpreter_params = "parallelism=" + fmt.Sprintf("%d", job.GetJob().GetArgs().GetParallelism())
 			}
+			//interpreter_params += "(runAsOne=true)"
+
+			if job.GetJob().GetCode().GetType() == model.StreamJob_SQL && job.Command == constants.JobCommandRun {
+				v := "; explain insert "
+				SqlMainRun := job.GetJob().GetCode().GetSql().GetCode()
+				reirun := regexp.MustCompile(`; *\n* *(i|I)(n|N)(s|S)(e|E)(r|R)(t|T)( +|\n)`)
+				if strings.Count(reirun.ReplaceAllString(SqlMainRun, v), v) >= 2 {
+					if interpreter_params != "" {
+						interpreter_params += ","
+					}
+					interpreter_params += "runAsOne=true"
+				}
+			}
+			interpreter_mainrun += interpreter + "(" + interpreter_params + ")\n\n"
 			interpreter += "\n\n"
 		}
 
@@ -1679,18 +1692,7 @@ func parserJobInfo(ctx context.Context, job *request.JobParser, engineClient Eng
 		jobElement.ZeppelinConf += "\n"
 
 		//mainrun
-		if job.GetJob().GetCode().GetType() == model.StreamJob_SQL && job.Command == constants.JobCommandRun {
-			v := "; explain insert "
-			SqlMainRun := job.GetJob().GetCode().GetSql().GetCode()
-			reirun := regexp.MustCompile(`; *\n* *(i|I)(n|N)(s|S)(e|E)(r|R)(t|T)( +|\n)`)
-			if strings.Count(reirun.ReplaceAllString(SqlMainRun, v), v) >= 2 {
-				if interpreter_params != "" {
-					interpreter_params += ","
-				}
-				interpreter_params += "runAsOne=true"
-			}
-		}
-		jobElement.ZeppelinMainRun = interpreter + "(" + interpreter_params + ")"
+		jobElement.ZeppelinMainRun = interpreter_mainrun
 		if job.GetJob().GetCode().GetType() == model.StreamJob_Scala {
 			jobElement.ZeppelinMainRun += job.GetJob().GetCode().GetScala().GetCode()
 		} else if job.GetJob().GetCode().GetType() == model.StreamJob_Python {
