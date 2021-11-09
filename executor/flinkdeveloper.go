@@ -1374,9 +1374,10 @@ func parserJobInfo(ctx context.Context, job *request.JobParser, engineClient Eng
 		jobElement.ZeppelinMainRun += flinkHome + "/bin/flink run -sae -m " + FlinkHostQuote + ":" + FlinkPortQuote + jarParallelism + entry + localJarPath + " " + jar.GetJarArgs()
 	} else {
 		var (
-			interpreter string
-			sql         SqlStack
-			sourcetypes []string
+			interpreter        string
+			interpreter_params string
+			sql                SqlStack
+			sourcetypes        []string
 		)
 
 		// interpreter
@@ -1393,9 +1394,9 @@ func parserJobInfo(ctx context.Context, job *request.JobParser, engineClient Eng
 			}
 			if job.GetJob().GetArgs().GetParallelism() > 0 {
 				//interpreter += "(runAsOne=true,parallelism=" + fmt.Sprintf("%d", job.GetJob().GetArgs().GetParallelism()) + ")"
-				interpreter += "(parallelism=" + fmt.Sprintf("%d", job.GetJob().GetArgs().GetParallelism()) + ")"
+				interpreter_params += "parallelism=" + fmt.Sprintf("%d", job.GetJob().GetArgs().GetParallelism())
 			} else {
-				//interpreter += "(runAsOne=true)"
+				//interpreter_params += "(runAsOne=true)"
 			}
 			interpreter += "\n\n"
 		}
@@ -1678,7 +1679,18 @@ func parserJobInfo(ctx context.Context, job *request.JobParser, engineClient Eng
 		jobElement.ZeppelinConf += "\n"
 
 		//mainrun
-		jobElement.ZeppelinMainRun = interpreter
+		if job.GetJob().GetCode().GetType() == model.StreamJob_SQL && job.Command == constants.JobCommandRun {
+			v := "; explain insert "
+			SqlMainRun := job.GetJob().GetCode().GetSql().GetCode()
+			reirun := regexp.MustCompile(`; *\n* *(i|I)(n|N)(s|S)(e|E)(r|R)(t|T)( +|\n)`)
+			if strings.Count(reirun.ReplaceAllString(SqlMainRun, v), v) >= 2 {
+				if interpreter_params != "" {
+					interpreter_params += ","
+				}
+				interpreter_params += "runAsOne=true"
+			}
+		}
+		jobElement.ZeppelinMainRun = interpreter + "(" + interpreter_params + ")"
 		if job.GetJob().GetCode().GetType() == model.StreamJob_Scala {
 			jobElement.ZeppelinMainRun += job.GetJob().GetCode().GetScala().GetCode()
 		} else if job.GetJob().GetCode().GetType() == model.StreamJob_Python {
