@@ -1,9 +1,12 @@
 package executor
 
 import (
+	"bytes"
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"reflect"
 	"regexp"
 	"strings"
@@ -1333,6 +1336,19 @@ func validTableName(tableName string, mappingName string) string {
 	}
 }
 
+func CreateRandomString(len int) string {
+	var container string
+	var str = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"
+	b := bytes.NewBufferString(str)
+	length := b.Len()
+	bigInt := big.NewInt(int64(length))
+	for i := 0; i < len; i++ {
+		randomInt, _ := rand.Int(rand.Reader, bigInt)
+		container += string(str[randomInt.Int64()])
+	}
+	return container
+}
+
 func parserJobInfo(ctx context.Context, job *request.JobParser, engineClient EngineClient, sourceClient SourceClient, udfClient UdfClient, fileClient FileClient, flinkHome string, hadoopConf string, flinkExecuteJars string) (jobElement response.JobParser, err error) {
 	if job.GetJob().GetCode().GetType() == model.StreamJob_Jar {
 		if job.Command == constants.JobCommandPreview || job.Command == constants.JobCommandSyntax {
@@ -1380,6 +1396,8 @@ func parserJobInfo(ctx context.Context, job *request.JobParser, engineClient Eng
 			sourcetypes         []string
 		)
 
+		rei := regexp.MustCompile(`; *\n* *(i|I)(n|N)(s|S)(e|E)(r|R)(t|T)( +|\n+)(i|I)(n|N)(t|T)(o|O)( +|\n+)`)
+		reip := "; explain insert into "
 		// interpreter
 		if job.GetJob().GetCode().GetType() == model.StreamJob_Scala {
 			interpreter = "%flink\n\n"
@@ -1394,20 +1412,22 @@ func parserJobInfo(ctx context.Context, job *request.JobParser, engineClient Eng
 			} else {
 				interpreter = "%flink.bsql"
 			}
-			if job.GetJob().GetArgs().GetParallelism() > 0 {
-				interpreter_params = "parallelism=" + fmt.Sprintf("%d", job.GetJob().GetArgs().GetParallelism())
+
+			jobName := job.GetJob().GetJobId()
+			if job.Command == constants.JobCommandSyntax {
+				jobName = "syx-" + CreateRandomString(16)
 			}
-			//interpreter_params += "(runAsOne=true)"
+
+			interpreter_params = "jobName=" + jobName
+			if job.GetJob().GetArgs().GetParallelism() > 0 {
+				interpreter_params += ",parallelism=" + fmt.Sprintf("%d", job.GetJob().GetArgs().GetParallelism())
+			}
 
 			if job.GetJob().GetCode().GetType() == model.StreamJob_SQL && job.Command == constants.JobCommandRun {
-				v := "; explain insert "
 				SqlMainRun := job.GetJob().GetCode().GetSql().GetCode()
-				reirun := regexp.MustCompile(`; *\n* *(i|I)(n|N)(s|S)(e|E)(r|R)(t|T)( +|\n)`)
-				if strings.Count(reirun.ReplaceAllString(SqlMainRun, v), v) >= 2 {
-					if interpreter_params != "" {
-						interpreter_params += ","
-					}
-					interpreter_params += "runAsOne=true"
+				SqlMainRunReplace := rei.ReplaceAllString(SqlMainRun, reip)
+				if SqlMainRun != SqlMainRunReplace && strings.Count(rei.ReplaceAllString(SqlMainRun, reip), reip) >= 2 {
+					interpreter_params += ",runAsOne=true"
 				}
 			}
 			interpreter_mainrun += interpreter + "(" + interpreter_params + ")\n\n"
@@ -1700,9 +1720,8 @@ func parserJobInfo(ctx context.Context, job *request.JobParser, engineClient Eng
 		} else if job.GetJob().GetCode().GetType() == model.StreamJob_SQL {
 			jobElement.ZeppelinMainRun += job.GetJob().GetCode().GetSql().GetCode()
 			if job.Command == constants.JobCommandSyntax {
-				rei := regexp.MustCompile(`; *\n* *(i|I)(n|N)(s|S)(e|E)(r|R)(t|T)( +|\n)`)
 				res := regexp.MustCompile(`; *\n* *(s|S)(e|E)(l|L)(e|E)(c|C)(t|T)( +|\n)`)
-				jobElement.ZeppelinMainRun = rei.ReplaceAllString(jobElement.ZeppelinMainRun, "; explain insert ")
+				jobElement.ZeppelinMainRun = rei.ReplaceAllString(jobElement.ZeppelinMainRun, reip)
 				jobElement.ZeppelinMainRun = res.ReplaceAllString(jobElement.ZeppelinMainRun, "; explain select ")
 			}
 		} else if job.GetJob().GetCode().GetType() == model.StreamJob_Operator {
