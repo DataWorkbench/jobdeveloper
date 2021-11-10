@@ -1514,9 +1514,6 @@ func parserJobInfo(ctx context.Context, job *request.JobParser, engineClient Eng
 					t := tableSchema.GetMysql()
 
 					jobElement.ZeppelinDepends += "("
-					fmt.Println(t)
-					fmt.Println(t.SqlColumn)
-					fmt.Println(t.TimeColumn)
 					jobElement.ZeppelinDepends += GetSqlColumnDefine(t.SqlColumn, t.TimeColumn)
 					jobElement.ZeppelinDepends += ") WITH (\n"
 					jobElement.ZeppelinDepends += "'connector' = 'jdbc',\n"
