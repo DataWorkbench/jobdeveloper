@@ -1550,10 +1550,10 @@ func parserJobInfo(ctx context.Context, job *request.JobParser, engineClient Eng
 					jobElement.ZeppelinDepends += GetSqlColumnDefine(t.SqlColumn, t.TimeColumn)
 					jobElement.ZeppelinDepends += ") WITH (\n"
 					jobElement.ZeppelinDepends += "'connector' = 'clickhouse',\n"
-					jobElement.ZeppelinDepends += "'url' = 'clickhouse://" + m.Host + ":" + fmt.Sprintf("%d", m.Port) + "',\n"
+					jobElement.ZeppelinDepends += "'url' = 'jdbc:clickhouse://" + m.Host + ":" + fmt.Sprintf("%d", m.Port) + "/" + m.Database + "',\n"
 					jobElement.ZeppelinDepends += "'table-name' = '" + validTableName(tableName, t.MappingName) + "',\n"
 					jobElement.ZeppelinDepends += "'username' = '" + m.User + "',\n"
-					jobElement.ZeppelinDepends += "'database-name' = '" + m.Database + "',\n"
+					jobElement.ZeppelinDepends += "'format' = 'json',\n"
 					jobElement.ZeppelinDepends += "'password' = '" + m.Password + "'\n"
 
 					for _, opt := range t.ConnectorOptions {

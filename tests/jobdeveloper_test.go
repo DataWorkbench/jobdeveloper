@@ -19,8 +19,6 @@ import (
 )
 
 /*
-mysql--table define
-
 mysql> desc ms;
 +-------+--------+------+-----+---------+-------+
 | Field | Type   | Null | Key | Default | Extra |
@@ -29,24 +27,6 @@ mysql> desc ms;
 | id1   | bigint | YES  |     | NULL    |       |
 +-------+--------+------+-----+---------+-------+
 2 rows in set (0.01 sec)
-
-mysql> desc mss;
-+-------+--------+------+-----+---------+-------+
-| Field | Type   | Null | Key | Default | Extra |
-+-------+--------+------+-----+---------+-------+
-| id    | bigint | YES  |     | NULL    |       |
-| id1   | bigint | YES  |     | NULL    |       |
-+-------+--------+------+-----+---------+-------+
-2 rows in set (0.00 sec)
-
-mysql> desc pd;
-+-------+--------+------+-----+---------+-------+
-| Field | Type   | Null | Key | Default | Extra |
-+-------+--------+------+-----+---------+-------+
-| id    | bigint | YES  |     | NULL    |       |
-| id1   | bigint | YES  |     | NULL    |       |
-+-------+--------+------+-----+---------+-------+
-3 rows in set (0.01 sec)
 
 flink--table define
 drop table if exists ms;
@@ -58,31 +38,29 @@ create table ms
 'username' = 'root',
 'password' = '123456'
 );
-
-drop table if exists mss;
-create table mss
-(id bigint,id1 bigint) WITH (
-'connector' = 'jdbc',
-'url' = 'jdbc:mysql://127.0.0.1:3306/data_workbench',
-'table-name' = 'mss',
-'username' = 'root',
-'password' = '123456'
-);
-
-drop table if exists pd;
-create table pd
-(id bigint primary key NOT ENFORCED,id1 bigint) WITH (
-'connector' = 'jdbc',
-'url' = 'jdbc:mysql://127.0.0.1:3306/data_workbench',
-'table-name' = 'pd',
-'username' = 'root',
-'password' = '123456'
-);
-
--- insert into union, pd must have primary key.
 */
 
+// from mysql to mysql
 var source_dest request.JobParser
+
+// from hdfs to hdfs
+var hdfs_source_dest request.JobParser
+
+// from kafka to kafka
+var kafka_source_dest request.JobParser
+
+// from s3 to s3
+var s3_source_dest request.JobParser
+
+// from hbase to hbase
+var hbase_source_dest request.JobParser
+
+// from pg to pg
+var pg_source_dest request.JobParser
+
+// from ck to ck
+var ck_source_dest request.JobParser
+
 var source_rsource_join_dest_1 request.JobParser
 var sql request.JobParser
 var python request.JobParser
@@ -129,6 +107,12 @@ func mainInit(t *testing.T) {
 	java = request.JobParser{Command: constants.JobCommandRun, Job: &request.JobInfo{JobId: "job-000000000000java", SpaceId: spaceid, Code: &model.StreamJobCode{Type: model.StreamJob_Jar, Jar: &flinkpb.FlinkJar{ResourceId: "rsm-0000000000000jar"}}}}
 	javafree = request.JobFree{Resources: &model.JobResources{JobId: "job-000000000000java", Jar: "rsm-0000000000000jar"}}
 	source_dest = request.JobParser{Command: constants.JobCommandRun, Job: &request.JobInfo{JobId: "job-00000source_dest", SpaceId: spaceid, Code: &model.StreamJobCode{Type: model.StreamJob_Operator, Operators: []*flinkpb.FlinkOperator{&flinkpb.FlinkOperator{Type: flinkpb.FlinkOperator_Source, Id: "xx0", DownStream: "xx1", PointX: 1, PointY: 1, Property: &flinkpb.OperatorProperty{Source: &flinkpb.SourceOperator{TableId: "sot-00000mysqlsource", Column: []*flinkpb.ColumnAs{&flinkpb.ColumnAs{Field: "id"}, &flinkpb.ColumnAs{Field: "id1"}}}}}, &flinkpb.FlinkOperator{Type: flinkpb.FlinkOperator_Dest, Id: "xx1", Upstream: "xx0", PointX: 1, PointY: 1, Property: &flinkpb.OperatorProperty{Dest: &flinkpb.DestOperator{TableId: "sot-0000000mysqldest", Columns: []string{"id", "id1"}}}}}}}}
+	hdfs_source_dest = request.JobParser{Command: constants.JobCommandRun, Job: &request.JobInfo{JobId: "job-hdfs_source_dest", SpaceId: spaceid, Code: &model.StreamJobCode{Type: model.StreamJob_Operator, Operators: []*flinkpb.FlinkOperator{&flinkpb.FlinkOperator{Type: flinkpb.FlinkOperator_Source, Id: "xx0", DownStream: "xx1", PointX: 1, PointY: 1, Property: &flinkpb.OperatorProperty{Source: &flinkpb.SourceOperator{TableId: "sot-00000hdfs_source", Column: []*flinkpb.ColumnAs{&flinkpb.ColumnAs{Field: "id"}, &flinkpb.ColumnAs{Field: "id1"}}}}}, &flinkpb.FlinkOperator{Type: flinkpb.FlinkOperator_Dest, Id: "xx1", Upstream: "xx0", PointX: 1, PointY: 1, Property: &flinkpb.OperatorProperty{Dest: &flinkpb.DestOperator{TableId: "sot-0000000hdfs_dest", Columns: []string{"id", "id1"}}}}}}}}
+	pg_source_dest = request.JobParser{Command: constants.JobCommandRun, Job: &request.JobInfo{JobId: "job-00pg_source_dest", SpaceId: spaceid, Code: &model.StreamJobCode{Type: model.StreamJob_Operator, Operators: []*flinkpb.FlinkOperator{&flinkpb.FlinkOperator{Type: flinkpb.FlinkOperator_Source, Id: "xx0", DownStream: "xx1", PointX: 1, PointY: 1, Property: &flinkpb.OperatorProperty{Source: &flinkpb.SourceOperator{TableId: "sot-0postgres_source", Column: []*flinkpb.ColumnAs{&flinkpb.ColumnAs{Field: "id"}, &flinkpb.ColumnAs{Field: "id1"}}}}}, &flinkpb.FlinkOperator{Type: flinkpb.FlinkOperator_Dest, Id: "xx1", Upstream: "xx0", PointX: 1, PointY: 1, Property: &flinkpb.OperatorProperty{Dest: &flinkpb.DestOperator{TableId: "sot-000postgres_dest", Columns: []string{"id", "id1"}}}}}}}}
+	ck_source_dest = request.JobParser{Command: constants.JobCommandRun, Job: &request.JobInfo{JobId: "job-00ck_source_dest", SpaceId: spaceid, Code: &model.StreamJobCode{Type: model.StreamJob_Operator, Operators: []*flinkpb.FlinkOperator{&flinkpb.FlinkOperator{Type: flinkpb.FlinkOperator_Source, Id: "xx0", DownStream: "xx1", PointX: 1, PointY: 1, Property: &flinkpb.OperatorProperty{Source: &flinkpb.SourceOperator{TableId: "sot-clickhousesource", Column: []*flinkpb.ColumnAs{&flinkpb.ColumnAs{Field: "id"}, &flinkpb.ColumnAs{Field: "id1"}}}}}, &flinkpb.FlinkOperator{Type: flinkpb.FlinkOperator_Dest, Id: "xx1", Upstream: "xx0", PointX: 1, PointY: 1, Property: &flinkpb.OperatorProperty{Dest: &flinkpb.DestOperator{TableId: "sot-0clickhouse_dest", Columns: []string{"id", "id1"}}}}}}}}
+	kafka_source_dest = request.JobParser{Command: constants.JobCommandRun, Job: &request.JobInfo{JobId: "job-kafkasource_dest", SpaceId: spaceid, Code: &model.StreamJobCode{Type: model.StreamJob_Operator, Operators: []*flinkpb.FlinkOperator{&flinkpb.FlinkOperator{Type: flinkpb.FlinkOperator_Source, Id: "xx0", DownStream: "xx1", PointX: 1, PointY: 1, Property: &flinkpb.OperatorProperty{Source: &flinkpb.SourceOperator{TableId: "sot-00000kafkasource", Column: []*flinkpb.ColumnAs{&flinkpb.ColumnAs{Field: "paycount"}, &flinkpb.ColumnAs{Field: "paymoney"}}}}}, &flinkpb.FlinkOperator{Type: flinkpb.FlinkOperator_Dest, Id: "xx1", Upstream: "xx0", PointX: 1, PointY: 1, Property: &flinkpb.OperatorProperty{Dest: &flinkpb.DestOperator{TableId: "sot-0000000kafkadest", Columns: []string{"paycount", "paymoney"}}}}}}}}
+	s3_source_dest = request.JobParser{Command: constants.JobCommandRun, Job: &request.JobInfo{JobId: "job-00s3_source_dest", SpaceId: spaceid, Code: &model.StreamJobCode{Type: model.StreamJob_Operator, Operators: []*flinkpb.FlinkOperator{&flinkpb.FlinkOperator{Type: flinkpb.FlinkOperator_Source, Id: "xx0", DownStream: "xx1", PointX: 1, PointY: 1, Property: &flinkpb.OperatorProperty{Source: &flinkpb.SourceOperator{TableId: "sot-0000000s3_source", Column: []*flinkpb.ColumnAs{&flinkpb.ColumnAs{Field: "id"}, &flinkpb.ColumnAs{Field: "id1"}}}}}, &flinkpb.FlinkOperator{Type: flinkpb.FlinkOperator_Dest, Id: "xx1", Upstream: "xx0", PointX: 1, PointY: 1, Property: &flinkpb.OperatorProperty{Dest: &flinkpb.DestOperator{TableId: "sot-000000000s3_dest", Columns: []string{"id", "id1"}}}}}}}}
+	hbase_source_dest = request.JobParser{Command: constants.JobCommandRun, Job: &request.JobInfo{JobId: "job-hbasesource_dest", SpaceId: spaceid, Code: &model.StreamJobCode{Type: model.StreamJob_Operator, Operators: []*flinkpb.FlinkOperator{&flinkpb.FlinkOperator{Type: flinkpb.FlinkOperator_Source, Id: "xx0", DownStream: "xx1", PointX: 1, PointY: 1, Property: &flinkpb.OperatorProperty{Source: &flinkpb.SourceOperator{TableId: "sot-0000hbase_source", Column: []*flinkpb.ColumnAs{&flinkpb.ColumnAs{Field: "rowkey"}, &flinkpb.ColumnAs{Field: "columna"}}}}}, &flinkpb.FlinkOperator{Type: flinkpb.FlinkOperator_Dest, Id: "xx1", Upstream: "xx0", PointX: 1, PointY: 1, Property: &flinkpb.OperatorProperty{Dest: &flinkpb.DestOperator{TableId: "sot-000000hbase_dest", Columns: []string{"rowkey", "columna"}}}}}}}}
 
 	//source_dest = request.JobParser{Command: "run", Job: &request.JobInfo{JobID: "job-0123456789012345", SpaceID: spaceid, Env: &model.StreamFlowEnv{EngineId: "eng-0123456789012345", JobCu: 1, TaskCu: 1, TaskNum: 1, Flink: &model.FlinkConfig{Parallelism: 1}}, Nodes: &model.FlinkJobNodes{JobNodes: []*model.FlinkDagNode{&model.FlinkDagNode{NodeType: "Source", NodeID: "xx0", DownStream: "xx1", PointX: "x", PointY: "y", Property: &model.FlinkNodeProperty{Source: &model.SourceNodeProperty{TableID: "sot-0123456789012347", Column: []*model.ColumnAs{&model.ColumnAs{Field: "id"}, &model.ColumnAs{Field: "id1"}}}}}, &model.FlinkDagNode{NodeType: "Dest", NodeID: "xx1", UpStream: "xx0", PointX: "x", PointY: "y", Property: &model.FlinkNodeProperty{Dest: &model.DestNodeProperty{TableID: "sot-0123456789012348", Columns: []string{"id", "id1"}}}}}}}}
 	//source_dest = request.JobParser{Command: "run", Job: &request.JobInfo{JobID: "job-0123456789012345", SpaceID: spaceid, Env: &model.StreamFlowEnv{EngineId: "eng-0123456789012345", JobCu: 1, TaskCu: 1, TaskNum: 1, Flink: &model.FlinkConfig{Parallelism: 1}}, Nodes: &model.FlinkJobNodes{JobNodes: []*model.FlinkDagNode{&model.FlinkDagNode{NodeType: "Source", NodeID: "xx0", DownStream: "xx1", PointX: "x", PointY: "y", Property: &model.FlinkNodeProperty{Source: &model.SourceNodeProperty{TableID: "sot-0123456789012347", Column: []*model.ColumnAs{&model.ColumnAs{Field: "id"}, &model.ColumnAs{Field: "id1"}}}}}, &model.FlinkDagNode{NodeType: "Dest", NodeID: "xx1", UpStream: "xx0", PointX: "x", PointY: "y", Property: &model.FlinkNodeProperty{Dest: &model.DestNodeProperty{TableID: "sot-0123456789012348", Columns: []string{"id", "id1"}}}}}}}}
@@ -206,6 +190,18 @@ func Test_JobParser(t *testing.T) {
 	_, err = client.JobParser(ctx, &java)
 	require.Nil(t, err, "%+v", err)
 	_, err = client.JobParser(ctx, &source_dest)
+	require.Nil(t, err, "%+v", err)
+	_, err = client.JobParser(ctx, &kafka_source_dest)
+	require.Nil(t, err, "%+v", err)
+	_, err = client.JobParser(ctx, &hdfs_source_dest)
+	require.Nil(t, err, "%+v", err)
+	_, err = client.JobParser(ctx, &s3_source_dest)
+	require.Nil(t, err, "%+v", err)
+	_, err = client.JobParser(ctx, &hbase_source_dest)
+	require.Nil(t, err, "%+v", err)
+	_, err = client.JobParser(ctx, &pg_source_dest)
+	require.Nil(t, err, "%+v", err)
+	_, err = client.JobParser(ctx, &ck_source_dest)
 	require.Nil(t, err, "%+v", err)
 	//sql, err = client.JobParser(ctx, &source_dest)
 	//_, err = client.JobParser(ctx, &source_dest)
