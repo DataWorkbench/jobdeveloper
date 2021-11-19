@@ -30,7 +30,6 @@ type Config struct {
 	ZeppelinFlinkExecuteJars string                 `json:"zeppelin_flink_execute_jars"      yaml:"zeppelin_flink_execute_jars"      env:"ZEPPELIN_FLINK_EXECUTE_JARS" validate:"required"`
 	SourcemanagerServer      *grpcwrap.ClientConfig `json:"sourcemanager_server"      yaml:"sourcemanager_server"      env:"SOURCEMANAGER_SERVER" validate:"required"`
 	UdfmanagerServer         *grpcwrap.ClientConfig `json:"udfmanager_server"      yaml:"udfmanager_server"      env:"UDFMANAGER_SERVER" validate:"required"`
-	FilemanagerServer        *grpcwrap.ClientConfig `json:"filemanager_server" yaml:"filemanager_server" env:"FILEMANAGER_SERVER" validate:"required"`
 	EnginemanagerServer      *grpcwrap.ClientConfig `json:"enginemanager_server" yaml:"enginemanager_server" env:"ENGINEMANAGER_SERVER" validate:"required"`
 	Tracer                   *gtrace.Config         `json:"tracer"         yaml:"tracer"         env:"TRACER"              validate:"required"`
 }
