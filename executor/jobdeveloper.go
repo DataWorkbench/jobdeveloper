@@ -15,19 +15,19 @@ type JobdeveloperExecutor struct {
 	sourceClient     SourceClient
 	udfClient        UdfClient
 	engineClient     EngineClient
-	fileClient       FileClient
+	resourceClient   ResourceClient
 	FlinkHome        string
 	HadoopConf       string
 	FlinkExecuteJars string
 }
 
-func NewJobDeveloperExecutor(l *glog.Logger, eClient EngineClient, sClient SourceClient, uClient UdfClient, fClient FileClient, flinkHome string, hadoopConf string, flinkExecuteJars string) *JobdeveloperExecutor {
+func NewJobDeveloperExecutor(l *glog.Logger, eClient EngineClient, sClient SourceClient, uClient UdfClient, rClient ResourceClient, flinkHome string, hadoopConf string, flinkExecuteJars string) *JobdeveloperExecutor {
 	ex := &JobdeveloperExecutor{
 		logger:           l,
 		sourceClient:     sClient,
 		udfClient:        uClient,
 		engineClient:     eClient,
-		fileClient:       fClient,
+		resourceClient:   rClient,
 		FlinkHome:        flinkHome,
 		HadoopConf:       hadoopConf,
 		FlinkExecuteJars: flinkExecuteJars,
@@ -40,7 +40,7 @@ func (ex *JobdeveloperExecutor) JobParser(ctx context.Context, req *request.JobP
 		jobElement response.JobParser
 	)
 
-	jobElement, err = parserJobInfo(ctx, req, ex.engineClient, ex.sourceClient, ex.udfClient, ex.fileClient, ex.FlinkHome, ex.HadoopConf, ex.FlinkExecuteJars)
+	jobElement, err = parserJobInfo(ctx, req, ex.engineClient, ex.sourceClient, ex.udfClient, ex.resourceClient, ex.FlinkHome, ex.HadoopConf, ex.FlinkExecuteJars)
 	if err != nil {
 		return
 	}

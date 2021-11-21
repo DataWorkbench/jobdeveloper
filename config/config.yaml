@@ -28,7 +28,7 @@ udfmanager_server:
   log_level: 2
   log_verbosity: 99
 
-filemanager_server:
+resourcemanager_server:
   address: "127.0.0.1:9111"
   log_level: 2
   log_verbosity: 99

@@ -1348,7 +1348,7 @@ func CreateRandomString(len int) string {
 	return container
 }
 
-func parserJobInfo(ctx context.Context, job *request.JobParser, engineClient EngineClient, sourceClient SourceClient, udfClient UdfClient, fileClient FileClient, flinkHome string, hadoopConf string, flinkExecuteJars string) (jobElement response.JobParser, err error) {
+func parserJobInfo(ctx context.Context, job *request.JobParser, engineClient EngineClient, sourceClient SourceClient, udfClient UdfClient, resourceClient ResourceClient, flinkHome string, hadoopConf string, flinkExecuteJars string) (jobElement response.JobParser, err error) {
 	if job.GetJob().GetCode().GetType() == model.StreamJob_Jar {
 		if job.Command == constants.JobCommandPreview || job.Command == constants.JobCommandSyntax {
 			err = fmt.Errorf("jar mode only support run command")
@@ -1368,7 +1368,7 @@ func parserJobInfo(ctx context.Context, job *request.JobParser, engineClient Eng
 		jobElement.ZeppelinConf += "shell.command.timeout.millisecs    315360000000" // 1000×60×60×24×365×10 10years
 
 		// mainrun
-		if jarName, jarUrl, err = fileClient.GetFileById(ctx, jar.GetResourceId()); err != nil {
+		if jarName, jarUrl, err = resourceClient.GetFileById(ctx, jar.GetResourceId()); err != nil {
 			return
 		}
 		localJarPath := job.GetJob().GetJobId() + "/" + jarName
@@ -1386,7 +1386,7 @@ func parserJobInfo(ctx context.Context, job *request.JobParser, engineClient Eng
 		} else {
 			jarParallelism = " "
 		}
-		jobElement.ZeppelinMainRun += flinkHome + "/bin/flink run -sae -m " + FlinkHostQuote + ":" + FlinkPortQuote + jarParallelism + entry + localJarPath + " " + jar.GetJarArgs()
+		jobElement.ZeppelinMainRun += flinkHome + "/bin/flink run -d -m " + FlinkHostQuote + ":" + FlinkPortQuote + jarParallelism + entry + localJarPath + " " + jar.GetJarArgs()
 	} else {
 		var (
 			interpreter         string
