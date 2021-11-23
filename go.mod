@@ -3,7 +3,7 @@ module github.com/DataWorkbench/jobdeveloper
 go 1.15
 
 require (
-	github.com/DataWorkbench/common v0.0.0-20211108181704-452a6c334e63
+	github.com/DataWorkbench/common v0.0.0-20211119040652-ec556faf070a
 	github.com/DataWorkbench/glog v0.0.0-20210809050640-4960fd6de6ab
 	github.com/DataWorkbench/gproto v0.0.0-20211122025127-8346842af8ee
 	github.com/DataWorkbench/loader v0.0.0-20201119073611-6f210eb11a8c

@@ -1735,24 +1735,21 @@ func parserJobInfo(ctx context.Context, job *request.JobParser, engineClient Eng
 		}
 	}
 
-	// getengine url
-	//var engineresp *enginepb.CreateFlinkResponse
-	//engineresp, err = engineClient.client.Create(ctx, &enginepb.CreateFlinkRequest{Name: job.Job.JobID, Namespace: job.Job.SpaceID, WaitingReady: true, WaitingTimeout: 600, Conf: job.Job.Env})
-	//if err != nil {
-	//	return
-	//}
+	var engine_resp *response.DescribeFlickClusterAPI
+	engine_resp, err = engineClient.client.DescribeFlickClusterAPI(ctx, &request.DescribeFlickClusterAPI{SpaceId: job.GetJob().GetSpaceId(), ClusterId: job.GetJob().GetArgs().GetClusterId()})
+	if err != nil {
+		return
+	}
 
-	//engineresp = &enginepb.CreateFlinkResponse{Url: "127.0.0.1:8081"}
-	//engineresp = &enginepb.CreateFlinkResponse{Url: "flinkjobmanager:8081"}
+	jobElement.ZeppelinConf = strings.Replace(jobElement.ZeppelinConf, FlinkHostQuote, strings.Split(engine_resp.GetURL(), ":")[0], -1)
+	jobElement.ZeppelinConf = strings.Replace(jobElement.ZeppelinConf, FlinkPortQuote, strings.Split(engine_resp.GetURL(), ":")[1], -1) //ip
+	jobElement.ZeppelinMainRun = strings.Replace(jobElement.ZeppelinMainRun, FlinkHostQuote, strings.Split(engine_resp.GetURL(), ":")[0], -1)
+	jobElement.ZeppelinMainRun = strings.Replace(jobElement.ZeppelinMainRun, FlinkPortQuote, strings.Split(engine_resp.GetURL(), ":")[1], -1)
 
-	//jobElement.ZeppelinConf = strings.Replace(jobElement.ZeppelinConf, FlinkHostQuote, strings.Split(engineresp.Url, ":")[0], -1)
-	//jobElement.ZeppelinConf = strings.Replace(jobElement.ZeppelinConf, FlinkPortQuote, strings.Split(engineresp.Url, ":")[1], -1) //ip
-	//jobElement.ZeppelinMainRun = strings.Replace(jobElement.ZeppelinMainRun, FlinkHostQuote, strings.Split(engineresp.Url, ":")[0], -1)
-	//jobElement.ZeppelinMainRun = strings.Replace(jobElement.ZeppelinMainRun, FlinkPortQuote, strings.Split(engineresp.Url, ":")[1], -1)
-	jobElement.ZeppelinConf = strings.Replace(jobElement.ZeppelinConf, FlinkHostQuote, "flinkjobmanager", -1)
-	jobElement.ZeppelinConf = strings.Replace(jobElement.ZeppelinConf, FlinkPortQuote, "8081", -1) //ip
-	jobElement.ZeppelinMainRun = strings.Replace(jobElement.ZeppelinMainRun, FlinkHostQuote, "flinkjobmanager", -1)
-	jobElement.ZeppelinMainRun = strings.Replace(jobElement.ZeppelinMainRun, FlinkPortQuote, "8081", -1)
+	//jobElement.ZeppelinConf = strings.Replace(jobElement.ZeppelinConf, FlinkHostQuote, "flinkjobmanager", -1)
+	//jobElement.ZeppelinConf = strings.Replace(jobElement.ZeppelinConf, FlinkPortQuote, "8081", -1) //ip
+	//jobElement.ZeppelinMainRun = strings.Replace(jobElement.ZeppelinMainRun, FlinkHostQuote, "flinkjobmanager", -1)
+	//jobElement.ZeppelinMainRun = strings.Replace(jobElement.ZeppelinMainRun, FlinkPortQuote, "8081", -1)
 
 	return
 }
