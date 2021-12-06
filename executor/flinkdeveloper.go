@@ -28,6 +28,7 @@ type OperatorRelation struct {
 var (
 	nodeRelations  []OperatorRelation
 	Quote          = "$qc$"
+	UDFQuote       = Quote + "_udf_name_" + Quote
 	FlinkHostQuote = Quote + "FLINK_HOST" + Quote
 	FlinkPortQuote = Quote + "FLINK_PORT" + Quote
 )
@@ -1682,9 +1683,10 @@ func parserJobInfo(ctx context.Context, job *request.JobParser, engineClient Eng
 			var (
 				udfLanguage model.UDFInfo_Language
 				udfDefine   string
+				udfName     string
 			)
 
-			if udfLanguage, _, udfDefine, err = udfClient.DescribeUdfManager(ctx, udfid); err != nil {
+			if udfLanguage, udfName, udfDefine, err = udfClient.DescribeUdfManager(ctx, udfid); err != nil {
 				return
 			}
 
@@ -1694,12 +1696,14 @@ func parserJobInfo(ctx context.Context, job *request.JobParser, engineClient Eng
 					firstPython = false
 				}
 				jobElement.ZeppelinPythonUDF += udfDefine + "\n\n"
+				jobElement.ZeppelinPythonUDF = strings.Replace(jobElement.ZeppelinPythonUDF, UDFQuote, udfName, -1)
 			} else if udfLanguage == model.UDFInfo_Scala {
 				if firstScala == true {
 					jobElement.ZeppelinScalaUDF = "%flink\n\n"
 					firstScala = false
 				}
 				jobElement.ZeppelinScalaUDF += udfDefine + "\n\n"
+				jobElement.ZeppelinScalaUDF = strings.Replace(jobElement.ZeppelinScalaUDF, UDFQuote, udfName, -1)
 			} else if udfLanguage == model.UDFInfo_Java {
 				if firstJar == true {
 					jobElement.ZeppelinConf += "flink.udf.jars " + udfDefine
