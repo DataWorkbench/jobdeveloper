@@ -1739,8 +1739,8 @@ func parserJobInfo(ctx context.Context, job *request.JobParser, engineClient Eng
 		}
 	}
 
-	var engine_resp *response.DescribeFlickClusterAPI
-	engine_resp, err = engineClient.client.DescribeFlickClusterAPI(ctx, &request.DescribeFlickClusterAPI{SpaceId: job.GetJob().GetSpaceId(), ClusterId: job.GetJob().GetArgs().GetClusterId()})
+	var engine_resp *response.DescribeFlinkClusterAPI
+	engine_resp, err = engineClient.client.DescribeFlinkClusterAPI(ctx, &request.DescribeFlinkClusterAPI{SpaceId: job.GetJob().GetSpaceId(), ClusterId: job.GetJob().GetArgs().GetClusterId()})
 	if err != nil {
 		return
 	}
