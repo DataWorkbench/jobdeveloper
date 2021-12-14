@@ -4,11 +4,11 @@ import (
 	"bytes"
 	"context"
 	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"math/big"
 	"reflect"
-	"regexp"
 	"strings"
 
 	"github.com/DataWorkbench/gproto/pkg/model"
@@ -31,6 +31,7 @@ var (
 	UDFQuote       = Quote + "_udf_name_" + Quote
 	FlinkHostQuote = Quote + "FLINK_HOST" + Quote
 	FlinkPortQuote = Quote + "FLINK_PORT" + Quote
+	SynatxCmd      = "java -jar /zeppelin/flink/depends/sql-validator.jar "
 )
 
 func GetSqlColumnDefine(sqlColumns []*flinkpb.SqlColumnType, timeColumns []*flinkpb.SqlTimeColumnType) (define string) {
@@ -1722,38 +1723,37 @@ func parserJobInfo(ctx context.Context, job *request.JobParser, engineClient Eng
 		} else if job.GetJob().GetCode().GetType() == model.StreamJob_Python {
 			jobElement.ZeppelinMainRun += job.GetJob().GetCode().GetPython().GetCode()
 		} else if job.GetJob().GetCode().GetType() == model.StreamJob_SQL {
-			jobElement.ZeppelinMainRun += job.GetJob().GetCode().GetSql().GetCode()
 			if job.Command == constants.JobCommandSyntax {
-				res := regexp.MustCompile(`; *\n* *(s|S)(e|E)(l|L)(e|E)(c|C)(t|T)( +|\n)`)
-				resp := "; explain select "
-				rei := regexp.MustCompile(`; *\n* *(i|I)(n|N)(s|S)(e|E)(r|R)(t|T)( +|\n+)(i|I)(n|N)(t|T)(o|O)( +|\n+)`)
-				reip := "; explain insert into "
-				jobElement.ZeppelinMainRun = rei.ReplaceAllString(jobElement.ZeppelinMainRun, reip)
-				jobElement.ZeppelinMainRun = res.ReplaceAllString(jobElement.ZeppelinMainRun, resp)
+				jobElement.ZeppelinMainRun = "%sh\n\n" + SynatxCmd + base64.StdEncoding.EncodeToString([]byte(job.GetJob().GetCode().GetSql().GetCode()))
+			} else {
+				jobElement.ZeppelinMainRun += job.GetJob().GetCode().GetSql().GetCode()
 			}
 		} else if job.GetJob().GetCode().GetType() == model.StreamJob_Operator {
 			if job.Command == constants.JobCommandSyntax {
-				jobElement.ZeppelinMainRun += "explain "
+				jobElement.ZeppelinMainRun = "%sh\n\n" + SynatxCmd + base64.StdEncoding.EncodeToString([]byte(sql.Sql))
+			} else {
+				jobElement.ZeppelinMainRun += sql.Sql
 			}
-			jobElement.ZeppelinMainRun += sql.Sql
 		}
 	}
 
-	var engine_resp *response.DescribeFlinkClusterAPI
-	engine_resp, err = engineClient.client.DescribeFlinkClusterAPI(ctx, &request.DescribeFlinkClusterAPI{SpaceId: job.GetJob().GetSpaceId(), ClusterId: job.GetJob().GetArgs().GetClusterId()})
-	if err != nil {
-		return
+	if job.Command != constants.JobCommandSyntax {
+		var engine_resp *response.DescribeFlinkClusterAPI
+		engine_resp, err = engineClient.client.DescribeFlinkClusterAPI(ctx, &request.DescribeFlinkClusterAPI{SpaceId: job.GetJob().GetSpaceId(), ClusterId: job.GetJob().GetArgs().GetClusterId()})
+		if err != nil {
+			return
+		}
+
+		jobElement.ZeppelinConf = strings.Replace(jobElement.ZeppelinConf, FlinkHostQuote, strings.Split(engine_resp.GetURL(), ":")[0], -1)
+		jobElement.ZeppelinConf = strings.Replace(jobElement.ZeppelinConf, FlinkPortQuote, strings.Split(engine_resp.GetURL(), ":")[1], -1) //ip
+		jobElement.ZeppelinMainRun = strings.Replace(jobElement.ZeppelinMainRun, FlinkHostQuote, strings.Split(engine_resp.GetURL(), ":")[0], -1)
+		jobElement.ZeppelinMainRun = strings.Replace(jobElement.ZeppelinMainRun, FlinkPortQuote, strings.Split(engine_resp.GetURL(), ":")[1], -1)
+
+		//jobElement.ZeppelinConf = strings.Replace(jobElement.ZeppelinConf, FlinkHostQuote, "flinkjobmanager", -1)
+		//jobElement.ZeppelinConf = strings.Replace(jobElement.ZeppelinConf, FlinkPortQuote, "8081", -1) //ip
+		//jobElement.ZeppelinMainRun = strings.Replace(jobElement.ZeppelinMainRun, FlinkHostQuote, "flinkjobmanager", -1)
+		//jobElement.ZeppelinMainRun = strings.Replace(jobElement.ZeppelinMainRun, FlinkPortQuote, "8081", -1)
 	}
-
-	jobElement.ZeppelinConf = strings.Replace(jobElement.ZeppelinConf, FlinkHostQuote, strings.Split(engine_resp.GetURL(), ":")[0], -1)
-	jobElement.ZeppelinConf = strings.Replace(jobElement.ZeppelinConf, FlinkPortQuote, strings.Split(engine_resp.GetURL(), ":")[1], -1) //ip
-	jobElement.ZeppelinMainRun = strings.Replace(jobElement.ZeppelinMainRun, FlinkHostQuote, strings.Split(engine_resp.GetURL(), ":")[0], -1)
-	jobElement.ZeppelinMainRun = strings.Replace(jobElement.ZeppelinMainRun, FlinkPortQuote, strings.Split(engine_resp.GetURL(), ":")[1], -1)
-
-	//jobElement.ZeppelinConf = strings.Replace(jobElement.ZeppelinConf, FlinkHostQuote, "flinkjobmanager", -1)
-	//jobElement.ZeppelinConf = strings.Replace(jobElement.ZeppelinConf, FlinkPortQuote, "8081", -1) //ip
-	//jobElement.ZeppelinMainRun = strings.Replace(jobElement.ZeppelinMainRun, FlinkHostQuote, "flinkjobmanager", -1)
-	//jobElement.ZeppelinMainRun = strings.Replace(jobElement.ZeppelinMainRun, FlinkPortQuote, "8081", -1)
 
 	return
 }
