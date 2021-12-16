@@ -1398,6 +1398,7 @@ func parserJobInfo(ctx context.Context, job *request.JobParser, engineClient Eng
 			sourcetypes         []string
 		)
 
+		jobElement.Resources = &model.JobResources{JobId: job.GetJob().GetJobId()}
 		// interpreter
 		if job.GetJob().GetArgs().GetRunAsOne() {
 			runAsOne = "runAsOne=true"
