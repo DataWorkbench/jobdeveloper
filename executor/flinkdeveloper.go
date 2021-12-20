@@ -1400,11 +1400,12 @@ func parserJobInfo(ctx context.Context, job *request.JobParser, engineClient Eng
 
 		jobElement.Resources = &model.JobResources{JobId: job.GetJob().GetJobId()}
 		// interpreter
-		if job.GetJob().GetArgs().GetRunAsOne() {
-			runAsOne = "runAsOne=true"
-		} else {
-			runAsOne = "runAsOne=false"
-		}
+		//if job.GetJob().GetArgs().GetRunAsOne() {
+		//	runAsOne = "runAsOne=true"
+		//} else {
+		//	runAsOne = "runAsOne=false"
+		//}
+		runAsOne = "runAsOne=true"
 		if job.GetJob().GetCode().GetType() == model.StreamJob_Scala {
 			interpreter = "%flink\n\n"
 			interpreter_mainrun = "%flink(" + runAsOne + ")\n\n"
@@ -1720,9 +1721,17 @@ func parserJobInfo(ctx context.Context, job *request.JobParser, engineClient Eng
 		//mainrun
 		jobElement.ZeppelinMainRun = interpreter_mainrun
 		if job.GetJob().GetCode().GetType() == model.StreamJob_Scala {
-			jobElement.ZeppelinMainRun += job.GetJob().GetCode().GetScala().GetCode()
+			if job.Command == constants.JobCommandSyntax {
+				jobElement.ZeppelinMainRun = "%flink(init=true)"
+			} else {
+				jobElement.ZeppelinMainRun += job.GetJob().GetCode().GetScala().GetCode()
+			}
 		} else if job.GetJob().GetCode().GetType() == model.StreamJob_Python {
-			jobElement.ZeppelinMainRun += job.GetJob().GetCode().GetPython().GetCode()
+			if job.Command == constants.JobCommandSyntax {
+				jobElement.ZeppelinMainRun = "%flink(init=true)"
+			} else {
+				jobElement.ZeppelinMainRun += job.GetJob().GetCode().GetPython().GetCode()
+			}
 		} else if job.GetJob().GetCode().GetType() == model.StreamJob_SQL {
 			if job.Command == constants.JobCommandSyntax {
 				jobElement.ZeppelinMainRun = "%sh\n\n" + SynatxCmd + base64.StdEncoding.EncodeToString([]byte(job.GetJob().GetCode().GetSql().GetCode()))
