@@ -1757,7 +1757,7 @@ func parserJobInfo(ctx context.Context, job *request.JobParser, engineClient Eng
 		if job.GetJob().GetCode().GetType() <= 2 {
 			run := jobElement.ZeppelinMainRun
 			if strings.Contains(strings.ToLower(run), "insert") {
-				strings.ReplaceAll(jobElement.ZeppelinMainRun,"runAsOne=false","runAsOne=true")
+				jobElement.ZeppelinMainRun = strings.ReplaceAll(jobElement.ZeppelinMainRun, "runAsOne=false", "runAsOne=true")
 			}
 		}
 		jobElement.ZeppelinConf = strings.Replace(jobElement.ZeppelinConf, FlinkHostQuote, strings.Split(engine_resp.GetURL(), ":")[0], -1)
