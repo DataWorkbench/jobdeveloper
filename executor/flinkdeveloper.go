@@ -1405,7 +1405,7 @@ func parserJobInfo(ctx context.Context, job *request.JobParser, engineClient Eng
 		//} else {
 		//	runAsOne = "runAsOne=false"
 		//}
-		runAsOne = "runAsOne=true"
+		runAsOne = "runAsOne=false"
 		if job.GetJob().GetCode().GetType() == model.StreamJob_Scala {
 			interpreter = "%flink\n\n"
 			interpreter_mainrun = "%flink(" + runAsOne + ")\n\n"
@@ -1754,6 +1754,12 @@ func parserJobInfo(ctx context.Context, job *request.JobParser, engineClient Eng
 			return
 		}
 
+		if job.GetJob().GetCode().GetType() <= 2 {
+			run := jobElement.ZeppelinMainRun
+			if strings.Contains(strings.ToLower(run), "insert") {
+				strings.ReplaceAll(jobElement.ZeppelinMainRun,"runAsOne=false","runAsOne=true")
+			}
+		}
 		jobElement.ZeppelinConf = strings.Replace(jobElement.ZeppelinConf, FlinkHostQuote, strings.Split(engine_resp.GetURL(), ":")[0], -1)
 		jobElement.ZeppelinConf = strings.Replace(jobElement.ZeppelinConf, FlinkPortQuote, strings.Split(engine_resp.GetURL(), ":")[1], -1) //ip
 		jobElement.ZeppelinMainRun = strings.Replace(jobElement.ZeppelinMainRun, FlinkHostQuote, strings.Split(engine_resp.GetURL(), ":")[0], -1)
