@@ -1352,11 +1352,6 @@ func CreateRandomString(len int) string {
 
 func parserJobInfo(ctx context.Context, job *request.JobParser, engineClient EngineClient, sourceClient SourceClient, udfClient UdfClient, resourceClient ResourceClient, flinkHome string, hadoopConf string, flinkExecuteJars string) (jobElement response.JobParser, err error) {
 	if job.GetJob().GetCode().GetType() == model.StreamJob_Jar {
-		if job.Command == constants.JobCommandPreview || job.Command == constants.JobCommandSyntax {
-			err = fmt.Errorf("jar mode only support run command")
-			return
-		}
-
 		var (
 			entry          string
 			jarParallelism string
@@ -1389,6 +1384,11 @@ func parserJobInfo(ctx context.Context, job *request.JobParser, engineClient Eng
 			jarParallelism = " "
 		}
 		jobElement.ZeppelinMainRun += flinkHome + "/bin/flink run -d -m " + FlinkHostQuote + ":" + FlinkPortQuote + jarParallelism + entry + localJarPath + " " + jar.GetJarArgs()
+		if job.Command == constants.JobCommandPreview || job.Command == constants.JobCommandSyntax {
+			//err = fmt.Errorf("jar mode only support run command")
+			jobElement.ZeppelinMainRun = "%sh sleep 1"
+			return
+		}
 	} else {
 		var (
 			interpreter         string
