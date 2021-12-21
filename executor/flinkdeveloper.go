@@ -1649,27 +1649,56 @@ func parserJobInfo(ctx context.Context, job *request.JobParser, engineClient Eng
 		}
 		// conf executeJar
 		executeJars := ""
-		for _, jar := range strings.Split(strings.Replace(flinkExecuteJars, " ", "", -1), ";") {
-			sourceType := strings.Split(jar, ":")[0]
-			executeJar := strings.Split(jar, ":")[1]
+		//for _, jar := range strings.Split(strings.Replace(flinkExecuteJars, " ", "", -1), ";") {
+		//	sourceType := strings.Split(jar, ":")[0]
+		//	executeJar := strings.Split(jar, ":")[1]
+		//
+		//	if job.GetJob().GetCode().GetType() == model.StreamJob_Operator {
+		//		for _, jobSourceType := range sourcetypes {
+		//			if sourceType == jobSourceType {
+		//				if len(executeJars) > 0 {
+		//					executeJars += ","
+		//				}
+		//				executeJars += executeJar
+		//			}
+		//		}
+		//	} else {
+		//		if len(executeJars) > 0 {
+		//			executeJars += ","
+		//		}
+		//		executeJars += executeJar
+		//	}
+		//}
 
-			if job.GetJob().GetCode().GetType() == model.StreamJob_Operator {
-				for _, jobSourceType := range sourcetypes {
-					if sourceType == jobSourceType {
-						if len(executeJars) > 0 {
-							executeJars += ","
-						}
-						executeJars += executeJar
-					}
+		//TODO change connector to user select
+		var engine_resp *response.DescribeFlinkClusterAPI
+		builtInConnectors := job.GetJob().GetArgs().GetBuiltInConnectors()
+		engine_resp, err = engineClient.client.DescribeFlinkClusterAPI(ctx, &request.DescribeFlinkClusterAPI{SpaceId: job.GetJob().GetSpaceId(), ClusterId: job.GetJob().GetArgs().GetClusterId()})
+		if err != nil {
+			return
+		}
+		var connectorSet map[string]string
+		connectorJarMap := constants.FlinkConnectorJarMap[engine_resp.GetVersion()]
+		for index, connectors := range builtInConnectors {
+			jars := connectorJarMap[connectors]
+			for i, jar := range jars {
+				if index != len(builtInConnectors)-1 && i != len(jars)-1 {
+					connectorSet[jar+","] = ""
+				} else {
+					connectorSet[jar] = ""
 				}
-			} else {
-				if len(executeJars) > 0 {
-					executeJars += ","
-				}
-				executeJars += executeJar
 			}
 		}
-		jobElement.ZeppelinConf += "flink.execution.jars " + executeJars + "\n"
+		for jar, _ := range connectorSet {
+			executeJars += jar
+		}
+		if executeJars != "" && len(executeJars) > 0 {
+			if strings.HasSuffix(executeJars, ",") {
+				executeJars = executeJars[:strings.LastIndex(executeJars, ",")-1]
+			}
+			executeJars = executeJars[:strings.LastIndex(executeJars, ",")-1]
+			jobElement.ZeppelinConf += "flink.execution.jars " + executeJars + "\n"
+		}
 
 		// conf.udf
 		// ZeppelinPythonUDF
@@ -1679,9 +1708,9 @@ func parserJobInfo(ctx context.Context, job *request.JobParser, engineClient Eng
 		firstPython := true
 		allUDFs := []string{}
 		allUDFs = append(allUDFs, sql.UDFID...)
-		allUDFs = append(allUDFs, job.GetJob().GetArgs().GetFunction().GetUdfIds()...)
-		allUDFs = append(allUDFs, job.GetJob().GetArgs().GetFunction().GetUdtfIds()...)
-		allUDFs = append(allUDFs, job.GetJob().GetArgs().GetFunction().GetUdttfIds()...)
+		allUDFs = append(allUDFs, job.GetJob().GetArgs().GetUdfs()...)
+		//allUDFs = append(allUDFs, job.GetJob().GetArgs().GetFunction().GetUdtfIds()...)
+		//allUDFs = append(allUDFs, job.GetJob().GetArgs().GetFunction().GetUdttfIds()...)
 		for _, udfid := range allUDFs {
 			var (
 				udfLanguage model.UDFInfo_Language
