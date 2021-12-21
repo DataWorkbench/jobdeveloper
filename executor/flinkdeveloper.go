@@ -1747,7 +1747,7 @@ func parserJobInfo(ctx context.Context, job *request.JobParser, engineClient Eng
 		}
 	}
 
-	if job.Command != constants.JobCommandSyntax {
+	if job.Command != constants.JobCommandSyntax || job.GetJob().GetCode().GetType() > 2 {
 		var engine_resp *response.DescribeFlinkClusterAPI
 		engine_resp, err = engineClient.client.DescribeFlinkClusterAPI(ctx, &request.DescribeFlinkClusterAPI{SpaceId: job.GetJob().GetSpaceId(), ClusterId: job.GetJob().GetArgs().GetClusterId()})
 		if err != nil {
