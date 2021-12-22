@@ -1368,11 +1368,9 @@ func parserJobInfo(ctx context.Context, job *request.JobParser, engineClient Eng
 		if jarName, jarUrl, err = resourceClient.GetFileById(ctx, jar.GetResourceId()); err != nil {
 			return
 		}
-		localJarPath := job.GetJob().GetJobId() + "/" + jarName
+		localJarPath := "/tmp/" + jarName
 		jobElement.Resources = &model.JobResources{Jar: jar.GetResourceId(), JobId: job.GetJob().GetJobId()}
-		jobElement.ZeppelinMainRun = "%sh\n\n" + "useradd -m " + job.GetJob().GetJobId() + "\nsu - " + job.GetJob().GetJobId() + "\n"
-		jobElement.ZeppelinMainRun += "mkdir -p " + job.GetJob().GetJobId() + "\n"
-		jobElement.ZeppelinMainRun += fmt.Sprintf("hdfs dfs -get %v %v\n", jarUrl, localJarPath)
+		jobElement.ZeppelinMainRun += fmt.Sprintf("%v hdfs dfs -get %v %v\n", "%sh", jarUrl, localJarPath)
 		if len(jar.JarEntry) > 0 {
 			entry = " -c '" + jar.JarEntry + "' "
 		} else {

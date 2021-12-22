@@ -24,6 +24,6 @@ func (s *ResourceClient) GetFileById(ctx context.Context, id string) (name strin
 	}
 	name = res.Name
 	spaceId := res.SpaceId
-	url = "hdfs://" + spaceId + "/" + id+".jar"
+	url = "/" + spaceId + "/" + id + ".jar"
 	return
 }
