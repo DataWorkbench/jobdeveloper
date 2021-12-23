@@ -1647,29 +1647,29 @@ func parserJobInfo(ctx context.Context, job *request.JobParser, engineClient Eng
 		}
 		// conf executeJar
 		executeJars := ""
-		//for _, jar := range strings.Split(strings.Replace(flinkExecuteJars, " ", "", -1), ";") {
-		//	sourceType := strings.Split(jar, ":")[0]
-		//	executeJar := strings.Split(jar, ":")[1]
-		//
-		//	if job.GetJob().GetCode().GetType() == model.StreamJob_Operator {
-		//		for _, jobSourceType := range sourcetypes {
-		//			if sourceType == jobSourceType {
-		//				if len(executeJars) > 0 {
-		//					executeJars += ","
-		//				}
-		//				executeJars += executeJar
-		//			}
-		//		}
-		//	} else {
-		//		if len(executeJars) > 0 {
-		//			executeJars += ","
-		//		}
-		//		executeJars += executeJar
-		//	}
-		//}
+		for _, jar := range strings.Split(strings.Replace(flinkExecuteJars, " ", "", -1), ";") {
+			sourceType := strings.Split(jar, ":")[0]
+			executeJar := strings.Split(jar, ":")[1]
+
+			if job.GetJob().GetCode().GetType() == model.StreamJob_Operator {
+				for _, jobSourceType := range sourcetypes {
+					if sourceType == jobSourceType {
+						if len(executeJars) > 0 {
+							executeJars += ","
+						}
+						executeJars += executeJar
+					}
+				}
+			} else {
+				if len(executeJars) > 0 {
+					executeJars += ","
+				}
+				executeJars += executeJar
+			}
+		}
 
 		//TODO change connector to user select
-		var engine_resp *response.DescribeFlinkClusterAPI
+/*		var engine_resp *response.DescribeFlinkClusterAPI
 		builtInConnectors := job.GetJob().GetArgs().GetBuiltInConnectors()
 		engine_resp, err = engineClient.client.DescribeFlinkClusterAPI(ctx, &request.DescribeFlinkClusterAPI{SpaceId: job.GetJob().GetSpaceId(), ClusterId: job.GetJob().GetArgs().GetClusterId()})
 		if err != nil {
@@ -1696,7 +1696,9 @@ func parserJobInfo(ctx context.Context, job *request.JobParser, engineClient Eng
 			}
 			executeJars = executeJars[:strings.LastIndex(executeJars, ",")-1]
 			jobElement.ZeppelinConf += "flink.execution.jars " + executeJars + "\n"
-		}
+		}*/
+
+		jobElement.ZeppelinConf += "flink.execution.jars " + executeJars + "\n"
 
 		// conf.udf
 		// ZeppelinPythonUDF
