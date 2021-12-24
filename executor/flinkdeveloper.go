@@ -1630,7 +1630,7 @@ func parserJobInfo(ctx context.Context, job *request.JobParser, engineClient Eng
 					jobElement.ZeppelinDepends += "'connector' = 'ftp',\n"
 					jobElement.ZeppelinDepends += "'host' = '" + m.Host + "',\n"
 					jobElement.ZeppelinDepends += "'port' = '" + fmt.Sprintf("%d", m.Port) + "',\n"
-					jobElement.ZeppelinDepends += "'username' = '" + m.Username + "',\n"
+					jobElement.ZeppelinDepends += "'username' = '" + m.User + "',\n"
 					jobElement.ZeppelinDepends += "'password' = '" + m.Password + "',\n"
 					jobElement.ZeppelinDepends += "'path' = '" + t.Path + "',\n"
 					jobElement.ZeppelinDepends += "'format' = '" + t.Format + "'\n"
